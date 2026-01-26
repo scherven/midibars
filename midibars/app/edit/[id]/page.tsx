@@ -1,3 +1,4 @@
+import MIDIPlayer from "@/app/components/MidiPlayer";
 import VideoPlayer from "@/app/components/VideoPlayer";
 import { Mux } from "@mux/mux-node";
 import Link from "next/link";
@@ -28,6 +29,7 @@ export default async function WatchPage({
       >
         ← Back to Library
       </Link> */}
+      <MIDIPlayer />
 
       {asset.playback_ids?.[0]?.id ? (
         <VideoPlayer playbackId={asset.playback_ids[0].id} />
