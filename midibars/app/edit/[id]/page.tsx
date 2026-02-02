@@ -1,7 +1,7 @@
-import MIDIPlayer from "@/app/components/MidiPlayer";
+import MIDIPlayer from "@/app/components/FileUploadAreas";
 import VideoPlayer from "@/app/components/VideoPlayer";
 import { Mux } from "@mux/mux-node";
-import Link from "next/link";
+// import Link from "next/link";
 
 const client = new Mux({
   tokenId: process.env["MUX_TOKEN_ID"],

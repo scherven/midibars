@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Upload, Music, FileAudio } from "lucide-react";
 import ReactAudioPlayer from "react-audio-player";
+import MidiViewer from "./MidiViewer";
 
 export default function FileUploadAreas() {
   const [mp3File, setMp3File] = useState(null);
@@ -135,6 +136,7 @@ export default function FileUploadAreas() {
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
                 <span className="font-medium">MIDI:</span>
                 <span className="text-sm text-gray-600">{midiFile.name}</span>
+                <MidiViewer midiFile={midiFile} />
               </div>
             )}
           </div>
