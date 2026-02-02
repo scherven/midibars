@@ -1,5 +1,6 @@
 # TODO
-- [ ] snap rotate
+- [ ] snap rotate (or at least type in an angle / go up and down by one degree or something)
+- [ ] fix the rotate handle
 - [ ] resize
 - [ ] upload midi image
 - [ ] play video
@@ -7,6 +8,6 @@
 - [ ] bars
 - [ ] find the piano & make the trapezoid rectangular
 - [ ] actually fix dragging the image instead of the handles
-
+- [ ] fix the drag and drop midi/mp3 stuff 
 - [ ] overall ui redesign
 - [ ] split up uploads

@@ -1,56 +1,40 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Upload, Music, FileAudio } from "lucide-react";
+import ReactAudioPlayer from "react-audio-player";
 
 export default function FileUploadAreas() {
   const [mp3File, setMp3File] = useState(null);
   const [midiFile, setMidiFile] = useState(null);
-  const [dragOver, setDragOver] = useState({ mp3: false, midi: false });
 
-  // useEffect(() => {
-  //   const preventDefaults = (e) => {
-  //     e.preventDefault();
-  //   };
-
-  //   // Prevent default drag behavior on the window, but allow events to propagate
-  //   window.addEventListener("dragover", preventDefaults);
-  //   window.addEventListener("drop", preventDefaults);
-
-  //   return () => {
-  //     window.removeEventListener("dragover", preventDefaults);
-  //     window.removeEventListener("drop", preventDefaults);
-  //   };
-  // }, []);
-
-  const handleDragOver = (e, type) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver((prev) => ({ ...prev, [type]: true }));
-  };
-
-  const handleDragLeave = (e, type) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver((prev) => ({ ...prev, [type]: false }));
-  };
-
-  const handleDrop = (e, type, acceptedExtensions) => {
+  const handleDrop = (e) => {
     console.log("hanldedorp");
     e.preventDefault();
     e.stopPropagation();
-    setDragOver((prev) => ({ ...prev, [type]: false }));
 
     const file = e.dataTransfer.files[0];
-    if (
-      file &&
-      acceptedExtensions.some((ext) => file.name.toLowerCase().endsWith(ext))
-    ) {
-      if (type === "mp3") setMp3File(file);
-      else setMidiFile(file);
-    } else {
-      alert(`Please select a valid ${acceptedExtensions.join(" or ")} file`);
-    }
+    const mp3 = file.name.toLowerCase().endsWith("mp3");
+    const midi =
+      file.name.toLowerCase().endsWith("mid") ||
+      file.name.toLowerCase().endsWith("midi");
+
+    if (mp3) setMp3File(file);
+    else if (midi) setMidiFile(file);
   };
+
+  useEffect(() => {
+    const preventDefaults = (e) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener("dragover", preventDefaults);
+    window.addEventListener("drop", handleDrop);
+
+    return () => {
+      window.removeEventListener("dragover", preventDefaults);
+      window.removeEventListener("drop", handleDrop);
+    };
+  }, []);
 
   const handleFileSelect = (e, type, acceptedExtensions) => {
     const file = e.target.files[0];
@@ -74,14 +58,8 @@ export default function FileUploadAreas() {
     label,
   }) => (
     <div
-      className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${
-        dragOver[type]
-          ? "border-blue-500 bg-blue-50"
-          : "border-gray-300 hover:border-gray-400 bg-white"
-      }`}
-      // onDragOver={(e) => handleDragOver(e, type)}
-      // onDragLeave={(e) => handleDragLeave(e, type)}
-      // onDrop={(e) => handleDrop(e, type, acceptedExtensions)}
+      className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer border-gray-300 hover:border-gray-400 bg-white"`}
+      onDrop={(e) => handleDrop(e, type, acceptedExtensions)}
       onClick={() => document.getElementById(`${type}-input`).click()}
     >
       <input
@@ -146,6 +124,11 @@ export default function FileUploadAreas() {
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
                 <span className="font-medium">MP3:</span>
                 <span className="text-sm text-gray-600">{mp3File.name}</span>
+                <ReactAudioPlayer
+                  src={URL.createObjectURL(mp3File)}
+                  autoPlay
+                  controls
+                />
               </div>
             )}
             {midiFile && (
