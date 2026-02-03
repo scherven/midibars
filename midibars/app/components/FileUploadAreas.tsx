@@ -96,52 +96,53 @@ export default function FileUploadAreas() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="grid md:grid-cols-2 gap-6">
-        <FileUploadBox
-          type="mp3"
-          file={mp3File}
-          icon={FileAudio}
-          acceptedFormats=".mp3,audio/mpeg"
-          acceptedExtensions={[".mp3"]}
-          label="Upload MP3 File"
-        />
+    <div className="w-full">
+      <div className="max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-6">
+          <FileUploadBox
+            type="mp3"
+            file={mp3File}
+            icon={FileAudio}
+            acceptedFormats=".mp3,audio/mpeg"
+            acceptedExtensions={[".mp3"]}
+            label="Upload MP3 File"
+          />
 
-        <FileUploadBox
-          type="midi"
-          file={midiFile}
-          icon={Music}
-          acceptedFormats=".mid,.midi,audio/midi"
-          acceptedExtensions={[".mid", ".midi"]}
-          label="Upload MIDI File"
-        />
-      </div>
-
-      {(mp3File || midiFile) && (
-        <div className="mt-8 p-6 bg-white rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Uploaded Files:</h2>
-          <div className="space-y-2">
-            {mp3File && (
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                <span className="font-medium">MP3:</span>
-                <span className="text-sm text-gray-600">{mp3File.name}</span>
-                <ReactAudioPlayer
-                  src={URL.createObjectURL(mp3File)}
-                  autoPlay
-                  controls
-                />
-              </div>
-            )}
-            {midiFile && (
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                <span className="font-medium">MIDI:</span>
-                <span className="text-sm text-gray-600">{midiFile.name}</span>
-                <MidiViewer midiFile={midiFile} />
-              </div>
-            )}
-          </div>
+          <FileUploadBox
+            type="midi"
+            file={midiFile}
+            icon={Music}
+            acceptedFormats=".mid,.midi,audio/midi"
+            acceptedExtensions={[".mid", ".midi"]}
+            label="Upload MIDI File"
+          />
         </div>
-      )}
+        {(mp3File || midiFile) && (
+          <div className="mt-8 p-6 bg-white rounded-lg shadow">
+            <h2 className="text-xl font-semibold mb-4">Uploaded Files:</h2>
+            <div className="space-y-2">
+              {mp3File && (
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                  <span className="font-medium">MP3:</span>
+                  <span className="text-sm text-gray-600">{mp3File.name}</span>
+                  <ReactAudioPlayer
+                    src={URL.createObjectURL(mp3File)}
+                    autoPlay
+                    controls
+                  />
+                </div>
+              )}
+              {midiFile && (
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                  <span className="font-medium">MIDI:</span>
+                  <span className="text-sm text-gray-600">{midiFile.name}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      <MidiViewer midiFile={midiFile} />
     </div>
   );
 }
