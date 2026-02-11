@@ -142,7 +142,7 @@ export default function FileUploadAreas() {
           </div>
         )}
       </div>
-      <MidiViewer midiFile={midiFile} />
+      <MidiViewer midiFile={midiFile} mp3File={mp3File} />
     </div>
   );
 }
