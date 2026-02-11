@@ -46,9 +46,25 @@ function extractNotes(events: MidiEventData[]): ParsedNote[] {
 export default function MidiViewer({
   midiFile,
   mp3File,
+  onMp3TimeSelect,
+  midiPlayheadTime,
+  mp3PlayheadTime,
+  onMidiPlayheadDrag,
+  onMp3TimeClick,
+  onMp3ArrowKey,
+  alignmentMode = false,
+  waveformData,
 }: {
   midiFile: File | null;
   mp3File: File | null;
+  onMp3TimeSelect?: (time: number) => void;
+  midiPlayheadTime?: number;
+  mp3PlayheadTime?: number;
+  onMidiPlayheadDrag?: (time: number) => void;
+  onMp3TimeClick?: (time: number) => void;
+  onMp3ArrowKey?: (direction: "left" | "right") => void;
+  alignmentMode?: boolean;
+  waveformData?: number[];
 }) {
   const CONTROL_COLUMN_WIDTH = 40; // px reserved for controls on the left
   const COLUMN_GAP = 8; // px gap between controls and timeline/midi
@@ -57,8 +73,9 @@ export default function MidiViewer({
   const hasLogged = useRef(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [duration, setDuration] = useState(0); // seconds
-  const [currentTime, setCurrentTime] = useState(0); // seconds
+  const [duration, setDuration] = useState(0); // visible MP3 duration after trimming silence
+  const [audioLeadIn, setAudioLeadIn] = useState(0); // seconds of trimmed silence at start
+  const [currentTime, setCurrentTime] = useState(0); // playback position in visible timeline seconds
   const [cropStart, setCropStart] = useState(0); // seconds
   const [cropEnd, setCropEnd] = useState(0); // seconds
   const [dragging, setDragging] = useState<null | "playhead" | "start" | "end">(
@@ -67,9 +84,9 @@ export default function MidiViewer({
   const [isPlaying, setIsPlaying] = useState(false);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const combinedViewRef = useRef<HTMLDivElement | null>(null);
-  const [viewStart, setViewStart] = useState(0); // visible window start (seconds)
-  const [viewEnd, setViewEnd] = useState(0); // visible window end (seconds)
-  const [waveform, setWaveform] = useState<number[]>([]); // simple amplitude envelope for MP3
+  const [viewStart, setViewStart] = useState(0); // visible window start (seconds, trimmed)
+  const [viewEnd, setViewEnd] = useState(0); // visible window end (seconds, trimmed)
+  const [waveform, setWaveform] = useState<number[]>([]); // simple amplitude envelope for MP3 (trimmed so index 0 ≈ first sound)
 
   useEffect(() => {
     if (!midiFile || hasLogged.current) return;
@@ -88,6 +105,7 @@ export default function MidiViewer({
   // Create/revoke object URL for the MP3 so the audio element can play it
   useEffect(() => {
     if (!mp3File) {
+      console.log("MidiViewer: No MP3 file provided");
       setAudioUrl(null);
       setDuration(0);
       setCurrentTime(0);
@@ -99,7 +117,9 @@ export default function MidiViewer({
       setWaveform([]);
       return;
     }
+    console.log("MidiViewer: MP3 file received:", mp3File.name, mp3File.size, mp3File.type);
     const url = URL.createObjectURL(mp3File);
+    console.log("MidiViewer: Created audio URL:", url);
     setAudioUrl(url);
     return () => {
       URL.revokeObjectURL(url);
@@ -110,6 +130,12 @@ export default function MidiViewer({
   useEffect(() => {
     if (!mp3File) {
       setWaveform([]);
+      setDuration(0);
+      setAudioLeadIn(0);
+      setCropStart(0);
+      setCropEnd(0);
+      setViewStart(0);
+      setViewEnd(0);
       return;
     }
 
@@ -160,7 +186,25 @@ export default function MidiViewer({
             const normalized =
               globalMax > 0 ? values.map((v) => v / globalMax) : values;
 
-            setWaveform(normalized);
+            // Find first significant sound (simple threshold)
+            const threshold = 0.02;
+            let firstIndex = normalized.findIndex((v) => v > threshold);
+            if (firstIndex < 0) firstIndex = 0;
+
+            const trimmed = normalized.slice(firstIndex);
+            const fullDuration = audioBuffer.duration || 0;
+            const bucketDuration =
+              fullDuration > 0 ? fullDuration / buckets : 0;
+            const leadInSeconds = firstIndex * bucketDuration;
+            const visibleDuration = Math.max(fullDuration - leadInSeconds, 0);
+
+            setWaveform(trimmed);
+            setAudioLeadIn(leadInSeconds);
+            setDuration(visibleDuration);
+            setCropStart(0);
+            setCropEnd(visibleDuration);
+            setViewStart(0);
+            setViewEnd(visibleDuration);
             audioCtx.close();
           },
           () => {
@@ -193,12 +237,13 @@ export default function MidiViewer({
 
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
-    const t = audioRef.current.currentTime;
+    const rawT = audioRef.current.currentTime;
+    const t = Math.max(0, rawT - audioLeadIn);
     setCurrentTime(t);
     // Stop playback at crop end if defined
     if (t > cropEnd && cropEnd > 0) {
       audioRef.current.pause();
-      audioRef.current.currentTime = cropStart;
+      audioRef.current.currentTime = audioLeadIn + cropStart;
       setIsPlaying(false);
     }
   };
@@ -212,7 +257,7 @@ export default function MidiViewer({
         Math.max(currentTime, cropStart),
         cropEnd || duration,
       );
-      audio.currentTime = startTime;
+      audio.currentTime = Math.max(0, audioLeadIn + startTime);
       void audio.play();
     } else {
       audio.pause();
@@ -244,6 +289,12 @@ export default function MidiViewer({
     return ((clamped - start) / span) * 100;
   };
 
+  // For MIDI playhead in alignment mode, time is normalized 0-1 (tick ratio)
+  const midiTimeToPercent = (time: number) => {
+    // time is already 0-1 representing position in MIDI timeline
+    return time * 100;
+  };
+
   const clamp = (value: number, min: number, max: number) =>
     Math.min(Math.max(value, min), max);
 
@@ -255,13 +306,19 @@ export default function MidiViewer({
     const snapped = Math.round(target * 10) / 10;
     setCurrentTime(snapped);
     if (audioRef.current) {
-      audioRef.current.currentTime = snapped;
+      audioRef.current.currentTime = Math.max(
+        0,
+        audioLeadIn + snapped,
+      );
     }
   };
 
-  const updateFromClientX = (clientX: number, target: "playhead" | "start" | "end") => {
+  const updateFromClientX = (
+    clientX: number,
+    target: "playhead" | "start" | "end",
+  ): number | null => {
     const el = timelineRef.current;
-    if (!el || !duration) return;
+    if (!el || !duration) return null;
     const rect = el.getBoundingClientRect();
     const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
     // Map within current visible window
@@ -296,6 +353,7 @@ export default function MidiViewer({
         }
       }
     }
+    return snapped;
   };
 
   // Global mouse listeners for dragging handles / playhead
@@ -324,7 +382,21 @@ export default function MidiViewer({
     };
   }, [dragging, duration, cropStart, cropEnd, currentTime]);
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // In alignment mode, arrow keys control MP3 playhead
+    if (alignmentMode && onMp3ArrowKey) {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        onMp3ArrowKey("left");
+        return;
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        onMp3ArrowKey("right");
+        return;
+      }
+    }
+    
+    // Normal mode: arrow keys control playhead
     if (!duration) return;
     if (e.key === "ArrowLeft") {
       e.preventDefault();
@@ -336,9 +408,15 @@ export default function MidiViewer({
   };
 
   // ─── Derived data (memoised so it only recalculates when midiData changes)
-  const { notes, minNote, maxNote, totalTicks } = useMemo(() => {
+  const { notes, minNote, maxNote, totalTicks, firstNoteTick } = useMemo(() => {
     if (!midiData)
-      return { notes: [], minNote: 0, maxNote: 127, totalTicks: 1 };
+      return {
+        notes: [],
+        minNote: 0,
+        maxNote: 127,
+        totalTicks: 1,
+        firstNoteTick: 0,
+      };
 
     // Flatten all tracks into one note list
     const allNotes = midiData.tracks.flatMap((track) =>
@@ -346,15 +424,23 @@ export default function MidiViewer({
     );
 
     if (allNotes.length === 0)
-      return { notes: [], minNote: 0, maxNote: 127, totalTicks: 1 };
+      return {
+        notes: [],
+        minNote: 0,
+        maxNote: 127,
+        totalTicks: 1,
+        firstNoteTick: 0,
+      };
 
     const minNote = Math.min(...allNotes.map((n) => n.note));
     const maxNote = Math.max(...allNotes.map((n) => n.note));
-    const totalTicks = Math.max(
+    const maxTick = Math.max(
       ...allNotes.map((n) => n.startTick + n.durationTicks),
     );
+    const firstNoteTick = Math.min(...allNotes.map((n) => n.startTick));
+    const totalTicks = maxTick;
 
-    return { notes: allNotes, minNote, maxNote, totalTicks };
+    return { notes: allNotes, minNote, maxNote, totalTicks, firstNoteTick };
   }, [midiData]);
 
   // Number of visible pitch rows
@@ -376,7 +462,7 @@ export default function MidiViewer({
         padding: "4px 8px 4px",
         boxSizing: "border-box",
         borderTop: "1px solid #1e2230",
-        zIndex: 50,
+        zIndex: 10, // Lower z-index so video controls aren't covered
       }}
     >
       {/* Hidden audio element driving the custom MP3 viewer */}
@@ -394,7 +480,7 @@ export default function MidiViewer({
       )}
 
       {/* Combined MP3 + MIDI view with a single continuous playhead line */}
-      {(audioUrl || notes.length > 0) && (
+      {(audioUrl || notes.length > 0 || mp3File) && (
         <div
           ref={combinedViewRef}
           style={{
@@ -402,7 +488,7 @@ export default function MidiViewer({
           }}
         >
           {/* Custom MP3 viewer aligned with MIDI viewer */}
-          {audioUrl && (
+          {(audioUrl || mp3File) && (
             <div
               style={{
                 display: "grid",
@@ -435,20 +521,47 @@ export default function MidiViewer({
               <div
                 ref={timelineRef}
                 onMouseDown={(e) => {
-                  // Clicking base timeline moves playhead and starts drag
-                  updateFromClientX(e.clientX, "playhead");
-                  setDragging("playhead");
+                  if (alignmentMode && onMp3TimeClick) {
+                    // In alignment mode, clicking sets MP3 time (no dragging, no snapping)
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+                    onMp3TimeClick(ratio);
+                  } else if (!alignmentMode) {
+                    // Normal mode: clicking base timeline moves playhead and starts drag
+                    const time = updateFromClientX(e.clientX, "playhead");
+                    setDragging("playhead");
+                  }
                 }}
                 style={{
                   position: "relative",
                   height: 32,
                   borderRadius: 4,
                   background:
-                    "linear-gradient(to right, #020617, #020617)",
+                    waveform.length > 0
+                      ? "linear-gradient(to right, #020617, #020617)"
+                      : "#020617", // Show background even without waveform
                   border: "1px solid #1e293b",
-                  cursor: "pointer",
+                  cursor: alignmentMode ? "pointer" : "pointer",
+                  zIndex: 2, // Ensure MP3 bar is visible above MIDI
+                  minHeight: 32, // Ensure minimum height
                 }}
               >
+                {/* Show loading or placeholder if waveform not ready */}
+                {waveform.length === 0 && mp3File && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#64748b",
+                      fontSize: "12px",
+                    }}
+                  >
+                    Loading MP3...
+                  </div>
+                )}
                 {/* Waveform visualization (amplitude + color) */}
                 {waveform.length > 0 && (
                   <svg
@@ -528,6 +641,15 @@ export default function MidiViewer({
                 }}
               />
               <div
+                data-midi-area
+                onMouseDown={(e) => {
+                  if (alignmentMode && onMidiPlayheadDrag) {
+                    // In alignment mode, drag MIDI playhead
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+                    onMidiPlayheadDrag(ratio);
+                  }
+                }}
                 style={{
                   position: "relative",
                   // Compact fixed height so each pitch row (and note) is very short
@@ -535,6 +657,8 @@ export default function MidiViewer({
                   borderRadius: 4,
                   overflow: "hidden",
                   background: "#020617",
+                  cursor: alignmentMode ? "ew-resize" : "default",
+                  zIndex: 1, // Ensure MIDI area is visible
                 }}
               >
                 {/* Note bars */}
@@ -544,11 +668,19 @@ export default function MidiViewer({
                   const top = (rowFromTop / pitchRange) * 100;
                   const height = 100 / pitchRange;
 
-                  // Map note horizontally based on the same view window as the MP3
-                  const totalTicksSpan = totalTicks || 1;
-                  const noteStartRatio = note.startTick / totalTicksSpan;
+                  // Map note horizontally based on the same view window as the MP3,
+                  // rebasing so the first note starts at timeline 0.
+                  const totalTicksSpan = Math.max(
+                    totalTicks - firstNoteTick,
+                    1,
+                  );
+                  const noteStartRatio =
+                    (note.startTick - firstNoteTick) / totalTicksSpan;
                   const noteEndRatio =
-                    (note.startTick + note.durationTicks) / totalTicksSpan;
+                    (note.startTick +
+                      note.durationTicks -
+                      firstNoteTick) /
+                    totalTicksSpan;
 
                   const durationSpan = duration || 1;
                   const viewStartRatio =
@@ -610,69 +742,72 @@ export default function MidiViewer({
                 pointerEvents: "none",
               }}
             >
-              {/* Single continuous playhead spanning MP3 + MIDI */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  bottom: 0,
-                  left: `${timeToPercent(currentTime)}%`,
-                  width: 1,
-                  marginLeft: -0.5,
-                  background: "#38bdf8",
-                  pointerEvents: "none",
-                }}
-              />
-
-              {/* Start crop handle - unified across MP3 + MIDI */}
-              <div
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  // While adjusting crop, show the full track for context
-                  setViewStart(0);
-                  setViewEnd(duration);
-                  setDragging("start");
-                  updateFromClientX(e.clientX, "start");
-                }}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  bottom: 0,
-                  left: `${timeToPercent(cropStart)}%`,
-                  width: 4,
-                  marginLeft: -2,
-                  background: "#f97316",
-                  cursor: "ew-resize",
-                  zIndex: 10,
-                  pointerEvents: "auto",
-                }}
-              />
-
-              {/* End crop handle - unified across MP3 + MIDI */}
-              <div
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  // While adjusting crop, show the full track for context
-                  setViewStart(0);
-                  setViewEnd(duration);
-                  setDragging("end");
-                  updateFromClientX(e.clientX, "end");
-                }}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  bottom: 0,
-                  left: `${timeToPercent(cropEnd)}%`,
-                  width: 4,
-                  marginLeft: -2,
-                  background: "#f97316",
-                  cursor: "ew-resize",
-                  zIndex: 10,
-                  pointerEvents: "auto",
-                }}
-              />
+              {/* In alignment mode, show separate playheads for MIDI and MP3 */}
+              {alignmentMode ? (
+                <>
+                  {/* MP3 playhead - only on MP3 section (clickable, not draggable) */}
+                  {mp3PlayheadTime !== undefined && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        height: "32px", // MP3 bar height
+                        left: `${midiTimeToPercent(mp3PlayheadTime)}%`,
+                        width: 2,
+                        marginLeft: -1,
+                        background: "#10b981",
+                        cursor: "pointer",
+                        zIndex: 20,
+                        pointerEvents: "none", // Clicks handled by timeline div
+                      }}
+                    />
+                  )}
+                  {/* MIDI playhead - only on MIDI section */}
+                  {midiPlayheadTime !== undefined && (
+                    <div
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (onMidiPlayheadDrag) {
+                          // Calculate time from mouse position in MIDI area
+                          const midiArea = e.currentTarget.parentElement?.querySelector('[data-midi-area]') as HTMLElement;
+                          if (midiArea) {
+                            const rect = midiArea.getBoundingClientRect();
+                            const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+                            onMidiPlayheadDrag(ratio);
+                          }
+                        }
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: "36px", // Below MP3 bar (32px + 4px margin)
+                        bottom: 0,
+                        left: `${midiTimeToPercent(midiPlayheadTime)}%`,
+                        width: 2,
+                        marginLeft: -1,
+                        background: "#f59e0b",
+                        cursor: "ew-resize",
+                        zIndex: 20,
+                        pointerEvents: "auto",
+                      }}
+                    />
+                  )}
+                </>
+              ) : (
+                /* Single continuous playhead spanning MP3 + MIDI (normal mode) */
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: `${timeToPercent(currentTime)}%`,
+                    width: 1,
+                    marginLeft: -0.5,
+                    background: "#38bdf8",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
             </div>
           )}
         </div>

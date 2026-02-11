@@ -4,9 +4,41 @@ import { Upload, Music, FileAudio } from "lucide-react";
 import ReactAudioPlayer from "react-audio-player";
 import MidiViewer from "./MidiViewer";
 
-export default function FileUploadAreas() {
-  const [mp3File, setMp3File] = useState(null);
-  const [midiFile, setMidiFile] = useState(null);
+export default function FileUploadAreas({ id }: { id?: string }) {
+  const [mp3File, setMp3File] = useState<File | null>(null);
+  const [midiFile, setMidiFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState<{ mp3: boolean; midi: boolean }>({
+    mp3: false,
+    midi: false,
+  });
+
+  const uploadFile = async (file: File, assetId: string, fileType: "mp3" | "midi") => {
+    setUploading((prev) => ({ ...prev, [fileType]: true }));
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("assetId", assetId);
+      formData.append("fileType", fileType);
+
+      const response = await fetch("/api/files/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      // Store just a flag in localStorage that files are uploaded
+      localStorage.setItem(`${fileType}-${assetId}-uploaded`, "true");
+      console.log(`${fileType} uploaded successfully`);
+    } catch (error) {
+      console.error(`Error uploading ${fileType}:`, error);
+      alert(`Failed to upload ${fileType} file. Please try again.`);
+    } finally {
+      setUploading((prev) => ({ ...prev, [fileType]: false }));
+    }
+  };
 
   const handleDrop = (e) => {
     console.log("hanldedorp");
@@ -19,8 +51,19 @@ export default function FileUploadAreas() {
       file.name.toLowerCase().endsWith("mid") ||
       file.name.toLowerCase().endsWith("midi");
 
-    if (mp3) setMp3File(file);
-    else if (midi) setMidiFile(file);
+    if (mp3) {
+      setMp3File(file);
+      // Upload to server
+      if (id) {
+        uploadFile(file, id, "mp3");
+      }
+    } else if (midi) {
+      setMidiFile(file);
+      // Upload to server
+      if (id) {
+        uploadFile(file, id, "midi");
+      }
+    }
   };
 
   useEffect(() => {
@@ -43,8 +86,19 @@ export default function FileUploadAreas() {
       file &&
       acceptedExtensions.some((ext) => file.name.toLowerCase().endsWith(ext))
     ) {
-      if (type === "mp3") setMp3File(file);
-      else setMidiFile(file);
+      if (type === "mp3") {
+        setMp3File(file);
+        // Upload to server
+        if (id) {
+          uploadFile(file, id, "mp3");
+        }
+      } else {
+        setMidiFile(file);
+        // Upload to server
+        if (id) {
+          uploadFile(file, id, "midi");
+        }
+      }
     } else {
       alert(`Please select a valid ${acceptedExtensions.join(" or ")} file`);
     }
@@ -57,12 +111,34 @@ export default function FileUploadAreas() {
     acceptedFormats,
     acceptedExtensions,
     label,
-  }) => (
-    <div
-      className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer border-gray-300 hover:border-gray-400 bg-white"`}
-      onDrop={(e) => handleDrop(e, type, acceptedExtensions)}
-      onClick={() => document.getElementById(`${type}-input`).click()}
-    >
+  }) => {
+    const handleBoxDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const matches = acceptedExtensions.some((ext) =>
+          file.name.toLowerCase().endsWith(ext)
+        );
+        if (matches) {
+          if (type === "mp3") {
+            setMp3File(file);
+            if (id) uploadFile(file, id, "mp3");
+          } else {
+            setMidiFile(file);
+            if (id) uploadFile(file, id, "midi");
+          }
+        }
+      }
+    };
+
+    return (
+      <div
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer border-gray-300 hover:border-gray-400 bg-white"`}
+        onDrop={handleBoxDrop}
+        onDragOver={(e) => e.preventDefault()}
+        onClick={() => document.getElementById(`${type}-input`)?.click()}
+      >
       <input
         id={`${type}-input`}
         type="file"
@@ -82,6 +158,9 @@ export default function FileUploadAreas() {
           <p className="text-xs text-gray-500 mt-1">
             {(file.size / 1024 / 1024).toFixed(2)} MB
           </p>
+          {uploading[type] && (
+            <p className="text-xs text-blue-500 mt-1">Uploading...</p>
+          )}
         </div>
       ) : (
         <div>
@@ -92,8 +171,9 @@ export default function FileUploadAreas() {
           </p>
         </div>
       )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   return (
     <div className="w-full">
