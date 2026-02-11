@@ -88,7 +88,6 @@ export default function AlignPage() {
   const [selectedMp3Time, setSelectedMp3Time] = useState<number | null>(null);
   const [midiData, setMidiData] = useState<MidiFile | null>(null);
   const videoRef = useRef<any>(null);
-  const [isAlignedPlaying, setIsAlignedPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [alignmentData, setAlignmentData] = useState<any>(null);
 
@@ -287,9 +286,6 @@ export default function AlignPage() {
     };
   }, [mp3File]);
 
-  const lastSyncTime = useRef<number>(0);
-  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
   const handleVideoTimeUpdate = (e: any) => {
     let currentVideoTime = 0;
     if (e?.detail?.currentTime !== undefined) {
@@ -299,58 +295,36 @@ export default function AlignPage() {
       currentVideoTime = videoRef.current.currentTime;
       setVideoTime(currentVideoTime);
     }
-    // Don't sync here - let them play naturally and sync less frequently
-  };
-
-  // Periodic sync check (much less frequent to avoid choppiness)
-  useEffect(() => {
-    if (!alignmentData || !isVideoPlaying) {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
-        syncIntervalRef.current = null;
-      }
-      return;
-    }
-
-    // Sync every 500ms instead of on every frame
-    syncIntervalRef.current = setInterval(() => {
-      if (!videoRef.current || !audioRef.current || !isVideoPlaying) return;
-      
-      const videoStartTime = alignmentData.videoTime;
-      const mp3StartTime = alignmentData.mp3Time; // normalized 0-1
-      const audioDuration = audioRef.current.duration || 0;
-      if (audioDuration === 0) return;
-      
-      const mp3StartSeconds = mp3StartTime * audioDuration;
-      const currentVideoTime = videoRef.current.currentTime || 0;
-      const videoOffset = currentVideoTime - videoStartTime;
-      const targetMp3Time = mp3StartSeconds + videoOffset;
-
-      // Only correct if drift is significant (>0.2s) to avoid constant seeking
-      const currentMp3Time = audioRef.current.currentTime || 0;
-      const drift = Math.abs(currentMp3Time - targetMp3Time);
-      
-      if (drift > 0.2) {
-        audioRef.current.currentTime = Math.max(0, Math.min(targetMp3Time, audioDuration));
-      }
-    }, 500); // Check every 500ms
-
-    return () => {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
-        syncIntervalRef.current = null;
-      }
-    };
-  }, [alignmentData, isVideoPlaying]);
-
-  const handleVideoPlay = () => {
-    setIsVideoPlaying(true);
     
-    // Start MP3 playback in sync with video
+    // Sync MP3 position when video time updates (for seeking)
     if (alignmentData && audioRef.current && videoRef.current) {
       const videoStartTime = alignmentData.videoTime;
       const mp3StartTime = alignmentData.mp3Time; // normalized 0-1
       const audioDuration = audioRef.current.duration || 0;
+      
+      if (audioDuration > 0) {
+        const mp3StartSeconds = mp3StartTime * audioDuration;
+        const videoOffset = currentVideoTime - videoStartTime;
+        const targetMp3Time = mp3StartSeconds + videoOffset;
+        
+        // Only update if significantly different to avoid constant seeking
+        const currentMp3Time = audioRef.current.currentTime || 0;
+        if (Math.abs(currentMp3Time - targetMp3Time) > 0.05) {
+          audioRef.current.currentTime = Math.max(0, Math.min(targetMp3Time, audioDuration));
+        }
+      }
+    }
+  };
+
+  const handleVideoPlay = () => {
+    setIsVideoPlaying(true);
+    
+    // Start MP3 playback in sync with video when aligned
+    if (alignmentData && audioRef.current && videoRef.current) {
+      const videoStartTime = alignmentData.videoTime;
+      const mp3StartTime = alignmentData.mp3Time; // normalized 0-1
+      const audioDuration = audioRef.current.duration || 0;
+      
       if (audioDuration === 0) {
         // Wait for audio to load
         audioRef.current.addEventListener("loadedmetadata", () => {
@@ -385,6 +359,24 @@ export default function AlignPage() {
     // Pause MP3 when video pauses
     if (audioRef.current && !audioRef.current.paused) {
       audioRef.current.pause();
+    }
+  };
+
+  // Handle video seeking - sync MP3 position
+  const handleVideoSeek = () => {
+    if (alignmentData && audioRef.current && videoRef.current) {
+      const videoStartTime = alignmentData.videoTime;
+      const mp3StartTime = alignmentData.mp3Time; // normalized 0-1
+      const audioDuration = audioRef.current.duration || 0;
+      
+      if (audioDuration > 0) {
+        const mp3StartSeconds = mp3StartTime * audioDuration;
+        const currentVideoTime = videoRef.current.currentTime || 0;
+        const videoOffset = currentVideoTime - videoStartTime;
+        const targetMp3Time = mp3StartSeconds + videoOffset;
+        
+        audioRef.current.currentTime = Math.max(0, Math.min(targetMp3Time, audioDuration));
+      }
     }
   };
 
@@ -592,37 +584,6 @@ export default function AlignPage() {
   }, [mp3File, id]);
 
   // Synchronized playback (using the single source of truth)
-  const handleAlignedPlay = () => {
-    if (!alignmentData || !videoRef.current || !audioRef.current) return;
-
-    setIsAlignedPlaying(true);
-
-    // Use the saved alignment as single source of truth
-    const videoStartTime = alignmentData.videoTime;
-    const mp3StartTime = alignmentData.mp3Time; // normalized 0-1
-    const audioDuration = audioRef.current.duration || 0;
-    const mp3StartSeconds = mp3StartTime * audioDuration;
-
-    // Start video at the aligned time
-    videoRef.current.currentTime = videoStartTime;
-    videoRef.current.play();
-
-    // Start MP3 at the aligned time
-    audioRef.current.currentTime = mp3StartSeconds;
-    audioRef.current.play().catch((err) => {
-      console.error("Error playing MP3:", err);
-    });
-  };
-
-  const handleAlignedPause = () => {
-    setIsAlignedPlaying(false);
-    if (videoRef.current) {
-      videoRef.current.pause();
-    }
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-  };
 
   return (
     <div
@@ -644,7 +605,7 @@ export default function AlignPage() {
             {alignmentStep === "video"
               ? "Play video and click 'Select this moment' when the first note is pressed"
               : alignmentStep === "aligned"
-                ? "Alignment complete! Drag MIDI playhead to adjust, click MP3 timeline to set position. Use left/right arrows to fine-tune MP3. Click 'Play All' to preview."
+                ? "Alignment complete! Use video controls to play/pause all media. Drag MIDI playhead to adjust, click MP3 timeline to set position. Use left/right arrows to fine-tune MP3."
                 : "Drag the MIDI playhead to select the note, then click on the MP3 timeline to set the MP3 position. Use left/right arrows to fine-tune."}
           </p>
         </div>
@@ -678,6 +639,8 @@ export default function AlignPage() {
                 onTimeUpdate={handleVideoTimeUpdate}
                 onPlay={handleVideoPlay}
                 onPause={handleVideoPause}
+                onSeeking={handleVideoSeek}
+                onSeeked={handleVideoSeek}
                 style={{
                   width: "100%",
                   clipPath: cropState.crop
@@ -720,7 +683,7 @@ export default function AlignPage() {
         )}
 
 
-        {/* Aligned playback controls */}
+        {/* Alignment info */}
         {alignmentStep === "aligned" && alignmentData && (
           <div
             style={{
@@ -732,28 +695,11 @@ export default function AlignPage() {
             }}
           >
             <h3 style={{ margin: "0 0 12px", fontSize: "16px" }}>
-              Alignment Complete! Play all synchronized
+              Alignment Complete! Use video controls to play/pause all media
             </h3>
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              <button
-                onClick={isAlignedPlaying ? handleAlignedPause : handleAlignedPlay}
-                style={{
-                  padding: "8px 16px",
-                  background: isAlignedPlaying ? "#ef4444" : "#10b981",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                }}
-              >
-                {isAlignedPlaying ? "⏸ Pause" : "▶ Play All"}
-              </button>
-              <p style={{ margin: 0, color: "#64748b", fontSize: "14px" }}>
-                Video: {alignmentData.videoTime.toFixed(2)}s | MIDI Note: {alignmentData.midiNoteIndex} | MP3: {(alignmentData.mp3Time * 100).toFixed(1)}%
-              </p>
-            </div>
+            <p style={{ margin: 0, color: "#64748b", fontSize: "14px" }}>
+              Video: {alignmentData.videoTime.toFixed(2)}s | MIDI Note: {alignmentData.midiNoteIndex} | MP3: {(alignmentData.mp3Time * 100).toFixed(1)}%
+            </p>
           </div>
         )}
 
