@@ -508,29 +508,34 @@ export default function MainPage() {
 
   // Bars visualization calculations
   const currentMidiTime = useMemo(() => {
-    if (!alignmentData || !midiData || notes.length === 0) {
+    if (!alignmentData || !midiData || notes.length === 0 || selectedMidiNoteIndex === null) {
       return null;
     }
 
-    const { videoTime: videoStartTime, midiNoteIndex } = alignmentData;
-    
-    if (midiNoteIndex >= notes.length) {
+    if (selectedMidiNoteIndex >= notes.length) {
       return null;
     }
     
-    const alignedNote = notes[midiNoteIndex];
-    const alignedNoteStartSeconds = ticksToSeconds(
-      alignedNote.startTick,
-      tempoEvents,
-      ticksPerBeat,
-    );
-
-    const timeToUse = isVideoPlaying ? smoothVideoTime : videoTime;
-    const videoOffset = timeToUse - videoStartTime;
-    const midiTimeSeconds = alignedNoteStartSeconds + videoOffset;
+    // Calculate MIDI% from selected note (same as in EditableVideoPlayer)
+    const firstNoteTick = Math.min(...notes.map((n) => n.startTick));
+    const maxTick = Math.max(...notes.map((n) => n.startTick + n.durationTicks));
+    const totalTicks = maxTick - firstNoteTick;
+    
+    if (totalTicks === 0) {
+      return null;
+    }
+    
+    const selectedNote = notes[selectedMidiNoteIndex];
+    const notePosition = selectedNote.startTick - firstNoteTick;
+    const midiPercent = (notePosition / totalTicks) * 100;
+    
+    // Convert MIDI% back to MIDI time in seconds
+    // Find the tick position from the percentage
+    const targetTick = firstNoteTick + (midiPercent / 100) * totalTicks;
+    const midiTimeSeconds = ticksToSeconds(targetTick, tempoEvents, ticksPerBeat);
     
     return Math.max(0, midiTimeSeconds);
-  }, [smoothVideoTime, videoTime, isVideoPlaying, alignmentData, notes, tempoEvents, ticksPerBeat, midiData]);
+  }, [alignmentData, notes, tempoEvents, ticksPerBeat, midiData, selectedMidiNoteIndex]);
 
   const visibleNotes = useMemo(() => {
     if (!midiData || notes.length === 0 || currentMidiTime === null) {
@@ -830,6 +835,22 @@ export default function MainPage() {
 
         {/* Video Player Area */}
         <div style={{ padding: "20px", overflow: "auto", flex: 1 }}>
+          {/* MidiViewer at the top in align mode */}
+          {mode === "align" && (
+            <div style={{ marginBottom: "20px" }}>
+              <MidiViewer
+                midiFile={midiFile}
+                mp3File={mp3File}
+                midiPlayheadTime={midiPlayheadTime}
+                mp3PlayheadTime={mp3PlayheadTime}
+                onMidiPlayheadDrag={handleMidiPlayheadDrag}
+                onMp3TimeClick={handleMp3TimeClick}
+                onMp3ArrowKey={handleMp3ArrowKey}
+                alignmentMode={true}
+              />
+            </div>
+          )}
+
           {playbackId && (
             <div style={{ marginBottom: "20px", maxWidth: "1200px", marginLeft: "auto", marginRight: "auto" }}>
               <div style={{ background: "#11131a", borderRadius: "8px", padding: "20px", border: "1px solid #1e2230" }}>
@@ -841,27 +862,16 @@ export default function MainPage() {
                   onPause={handleVideoPause}
                   onSeeking={handleVideoSeek}
                   onSeeked={handleVideoSeek}
+                  alignMode={mode === "align"}
+                  alignmentData={alignmentData}
+                  audioRef={audioRef}
+                  selectedVideoTime={selectedVideoTime}
+                  currentVideoTime={videoTime}
+                  onVideoTimeSelect={handleVideoTimeSelect}
+                  selectedMidiNoteIndex={selectedMidiNoteIndex}
+                  notes={notes}
                 />
               </div>
-              {mode === "align" && (
-                <div style={{ marginTop: "12px", display: "flex", gap: "8px", justifyContent: "center" }}>
-                  <button
-                    onClick={handleVideoTimeSelect}
-                    style={{
-                      padding: "8px 16px",
-                      background: "#3b82f6",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {selectedVideoTime ? `Update: ${videoTime.toFixed(2)}s` : `Select: ${videoTime.toFixed(2)}s`}
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
@@ -960,19 +970,21 @@ export default function MainPage() {
             <audio ref={audioRef} src={audioUrl} style={{ display: "none" }} />
           )}
 
-          {/* MidiViewer at the bottom */}
-          <div style={{ marginTop: "auto" }}>
-            <MidiViewer
-              midiFile={midiFile}
-              mp3File={mp3File}
-              midiPlayheadTime={mode === "align" ? midiPlayheadTime : undefined}
-              mp3PlayheadTime={mode === "align" ? mp3PlayheadTime : undefined}
-              onMidiPlayheadDrag={mode === "align" ? handleMidiPlayheadDrag : undefined}
-              onMp3TimeClick={mode === "align" ? handleMp3TimeClick : undefined}
-              onMp3ArrowKey={mode === "align" ? handleMp3ArrowKey : undefined}
-              alignmentMode={mode === "align"}
-            />
-          </div>
+          {/* MidiViewer at the bottom (when not in align mode) */}
+          {mode !== "align" && (
+            <div style={{ marginTop: "auto" }}>
+              <MidiViewer
+                midiFile={midiFile}
+                mp3File={mp3File}
+                midiPlayheadTime={undefined}
+                mp3PlayheadTime={undefined}
+                onMidiPlayheadDrag={undefined}
+                onMp3TimeClick={undefined}
+                onMp3ArrowKey={undefined}
+                alignmentMode={false}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
