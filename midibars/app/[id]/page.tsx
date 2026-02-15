@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams } from "next/navigation";
-import MuxPlayer from "@mux/mux-player-react";
 import MidiViewer from "@/app/components/MidiViewer";
-import VideoThumbnailEditor from "@/app/components/VideoPlayer";
+import EditableVideoPlayer from "@/app/components/EditableVideoPlayer";
 import { MidiFile, MidiEventData, TempoMetaEvent } from "@/app/components/MidiReader";
 import { Upload, Music, FileAudio, Video, Menu, X, AlignCenter, BarChart3 } from "lucide-react";
 
@@ -101,7 +100,6 @@ export default function MainPage() {
   const [midiFile, setMidiFile] = useState<File | null>(null);
   const [midiData, setMidiData] = useState<MidiFile | null>(null);
   const [playbackId, setPlaybackId] = useState<string | null>(null);
-  const [cropState, setCropState] = useState<any>(null);
   
   // Mode states
   const [mode, setMode] = useState<"normal" | "align" | "bars">("normal");
@@ -181,7 +179,6 @@ export default function MainPage() {
   useEffect(() => {
     async function loadFiles() {
       try {
-        const savedCrop = localStorage.getItem("image-editor-state");
         const mp3Uploaded = localStorage.getItem(`mp3-${id}-uploaded`);
         const midiUploaded = localStorage.getItem(`midi-${id}-uploaded`);
 
@@ -213,10 +210,6 @@ export default function MainPage() {
           } catch (err) {
             console.error("Failed to load MIDI from server:", err);
           }
-        }
-
-        if (savedCrop) {
-          setCropState(JSON.parse(savedCrop));
         }
       } catch (error) {
         console.error("Failed to load files:", error);
@@ -837,50 +830,38 @@ export default function MainPage() {
 
         {/* Video Player Area */}
         <div style={{ padding: "20px", overflow: "auto", flex: 1 }}>
-          {playbackId && cropState && (
-            <div style={{ marginBottom: "20px", maxWidth: "800px", marginLeft: "auto", marginRight: "auto" }}>
-              <div style={{ position: "relative", marginBottom: "20px" }}>
-                <MuxPlayer
+          {playbackId && (
+            <div style={{ marginBottom: "20px", maxWidth: "1200px", marginLeft: "auto", marginRight: "auto" }}>
+              <div style={{ background: "#11131a", borderRadius: "8px", padding: "20px", border: "1px solid #1e2230" }}>
+                <EditableVideoPlayer
                   playbackId={playbackId}
-                  streamType="on-demand"
-                  ref={videoRef}
+                  videoRef={videoRef}
                   onTimeUpdate={handleVideoTimeUpdate}
                   onPlay={handleVideoPlay}
                   onPause={handleVideoPause}
                   onSeeking={handleVideoSeek}
                   onSeeked={handleVideoSeek}
-                  style={{
-                    width: "100%",
-                    clipPath: cropState.crop
-                      ? `inset(${cropState.crop.n}px ${cropState.crop.e}px ${cropState.crop.s}px ${cropState.crop.w}px)`
-                      : "none",
-                  }}
                 />
-                {mode === "align" && (
-                  <div style={{ marginTop: "12px", display: "flex", gap: "8px", justifyContent: "center" }}>
-                    <button
-                      onClick={handleVideoTimeSelect}
-                      style={{
-                        padding: "8px 16px",
-                        background: "#3b82f6",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {selectedVideoTime ? `Update: ${videoTime.toFixed(2)}s` : `Select: ${videoTime.toFixed(2)}s`}
-                    </button>
-                  </div>
-                )}
               </div>
-              
-              {/* Video Editor (like edit.tsx) */}
-              <div style={{ background: "#11131a", borderRadius: "8px", padding: "16px", border: "1px solid #1e2230" }}>
-                <VideoThumbnailEditor playbackId={playbackId} />
-              </div>
+              {mode === "align" && (
+                <div style={{ marginTop: "12px", display: "flex", gap: "8px", justifyContent: "center" }}>
+                  <button
+                    onClick={handleVideoTimeSelect}
+                    style={{
+                      padding: "8px 16px",
+                      background: "#3b82f6",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {selectedVideoTime ? `Update: ${videoTime.toFixed(2)}s` : `Select: ${videoTime.toFixed(2)}s`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
