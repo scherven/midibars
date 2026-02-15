@@ -1,5 +1,10 @@
 import { useEffect, useRef, useCallback } from "react";
 
+const BAR_WIDTH = 20;
+const BAR_RADIUS = 6;
+const ANIMATION_FPS = 60;
+const FRAME_INTERVAL = 1000 / ANIMATION_FPS;
+
 interface BarsVisualizationProps {
   noteBars: Array<{
     note: number;
@@ -13,8 +18,6 @@ interface BarsVisualizationProps {
     barHeight: number;
     timeUntilStart: number;
   }>;
-  videoTime: number;
-  currentMidiTime: number | null;
   pianoEdge: {
     point1: { x: number; y: number } | null;
     point2: { x: number; y: number } | null;
@@ -24,8 +27,6 @@ interface BarsVisualizationProps {
 
 export default function BarsVisualization({
   noteBars,
-  videoTime,
-  currentMidiTime,
   pianoEdge,
   videoRef,
 }: BarsVisualizationProps) {
@@ -76,107 +77,82 @@ export default function BarsVisualization({
       y: (pianoEdge.point2.y / 100) * videoHeight,
     };
 
-    // Draw grid
-    const gridColor = "rgba(30, 41, 59, 0.3)";
-    const gridXStep = videoWidth * 0.05; // 5% width
-    const gridYStep = videoHeight * 0.1; // 10% height
-
-    ctx.strokeStyle = gridColor;
-    ctx.lineWidth = 1;
-
-    // Vertical grid lines
-    // for (let x = 0; x <= videoWidth; x += gridXStep) {
-    //   ctx.beginPath();
-    //   ctx.moveTo(x, 0);
-    //   ctx.lineTo(x, videoHeight);
-    //   ctx.stroke();
-    // }
-
-    // // Horizontal grid lines
-    // for (let y = 0; y <= videoHeight; y += gridYStep) {
-    //   ctx.beginPath();
-    //   ctx.moveTo(0, y);
-    //   ctx.lineTo(videoWidth, y);
-    //   ctx.stroke();
-    // }
-
-    // Draw piano edge line
-    // ctx.save();
-    // ctx.strokeStyle = "#10b981";
-    // ctx.lineWidth = 2;
-    // ctx.shadowColor = "rgba(16, 185, 129, 0.8)";
-    // ctx.shadowBlur = 8;
-    // ctx.beginPath();
-    // ctx.moveTo(p1.x, p1.y);
-    // ctx.lineTo(p2.x, p2.y);
-    // ctx.stroke();
-    // ctx.restore();
-
-    // Calculate line equation: y = mx + b
+    // Calculate line direction and perpendicular vector
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
-    const m = dx !== 0 ? dy / dx : 0; // slope
-    const b = p1.y - m * p1.x; // y-intercept
-
-    // Function to get Y position on line for a given X
-    const getYOnLine = (x: number) => m * x + b;
-
-    // Draw bars
-    const barWidth = 20;
+    const lineLength = Math.sqrt(dx * dx + dy * dy);
+    
+    // Normalized direction vector along the line
+    const dirX = lineLength > 0 ? dx / lineLength : 0;
+    const dirY = lineLength > 0 ? dy / lineLength : 0;
+    
+    // Perpendicular direction (bars extend in this direction)
+    const perpX = -dirY;
+    const perpY = dirX;
 
     noteBars.forEach((bar) => {
+      // Calculate bar color based on channel and velocity
       const hue = (bar.channel * 45) % 360;
       const saturation = 90;
       const brightness = 50 + (bar.velocity / 127) * 30;
       const color = `hsl(${hue}, ${saturation}%, ${brightness}%)`;
       const opacity = Math.max(0.8, bar.opacity);
 
-      // X position based on note (0-127 maps to 0-100% of video width)
-      const x = (bar.notePosition / 100) * videoWidth - barWidth / 2;
+      // Calculate touch point on the line
+      const noteProgress = bar.notePosition / 100;
+      const xOnLine = p1.x + noteProgress * dx;
+      const yOnLine = p1.y + noteProgress * dy;
+      
+      // Calculate offset from line (for verticalPosition)
+      const fallDistance = (bar.verticalPosition / 100) * Math.max(videoWidth, videoHeight) * 0.5 - 250;
+      const barTouchX = xOnLine + fallDistance * perpX;
+      const barTouchY = yOnLine + fallDistance * perpY;
+      
+      // Bar dimensions
+      const barThinWidth = BAR_WIDTH;
+      const barLength = (bar.barHeight / 600) * videoHeight;
+      
+      // Calculate bar center (bar extends away from touch point)
+      const barMidX = barTouchX - (barLength / 2) * perpX;
+      const barMidY = barTouchY - (barLength / 2) * perpY;
+      
+      // Rotation angle to align bar perpendicular to line
+      const angle = Math.atan2(perpY, perpX);
 
-      // Y position on the piano edge line
-      const yOnLine = getYOnLine(x + barWidth / 2);
-
-      // Calculate bar position - bars fall downward from the line
-      // verticalPosition 0% = at the line, 100% = further down
-      const fallDistance = (bar.verticalPosition / 100) * videoHeight * 0.5; // Max fall distance
-      const y = yOnLine + fallDistance;
-      const height = (bar.barHeight / 600) * videoHeight;
-      console.log("drawing", bar, x, y, height);
+      const halfWidth = barThinWidth / 2;
+      const halfLength = barLength / 2;
 
       // Draw shadow/glow
       ctx.save();
+      ctx.translate(barMidX, barMidY);
+      ctx.rotate(angle);
       ctx.globalAlpha = opacity * 0.5;
       ctx.shadowColor = color;
       ctx.shadowBlur = 12;
       ctx.fillStyle = color;
-      ctx.fillRect(x, y, barWidth, height);
+      ctx.fillRect(-halfLength, -halfWidth, barLength, barThinWidth);
       ctx.restore();
 
-      // Draw bar with border
+      // Draw rounded rectangle bar
       ctx.save();
+      ctx.translate(barMidX, barMidY);
+      ctx.rotate(angle);
       ctx.globalAlpha = opacity;
       ctx.fillStyle = color;
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
-
+      
       // Draw rounded rectangle
-      const radius = 6;
       ctx.beginPath();
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + barWidth - radius, y);
-      ctx.quadraticCurveTo(x + barWidth, y, x + barWidth, y + radius);
-      ctx.lineTo(x + barWidth, y + height - radius);
-      ctx.quadraticCurveTo(
-        x + barWidth,
-        y + height,
-        x + barWidth - radius,
-        y + height,
-      );
-      ctx.lineTo(x + radius, y + height);
-      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.moveTo(-halfLength + BAR_RADIUS, -halfWidth);
+      ctx.lineTo(halfLength - BAR_RADIUS, -halfWidth);
+      ctx.quadraticCurveTo(halfLength, -halfWidth, halfLength, -halfWidth + BAR_RADIUS);
+      ctx.lineTo(halfLength, halfWidth - BAR_RADIUS);
+      ctx.quadraticCurveTo(halfLength, halfWidth, halfLength - BAR_RADIUS, halfWidth);
+      ctx.lineTo(-halfLength + BAR_RADIUS, halfWidth);
+      ctx.quadraticCurveTo(-halfLength, halfWidth, -halfLength, halfWidth - BAR_RADIUS);
+      ctx.lineTo(-halfLength, -halfWidth + BAR_RADIUS);
+      ctx.quadraticCurveTo(-halfLength, -halfWidth, -halfLength + BAR_RADIUS, -halfWidth);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -189,23 +165,17 @@ export default function BarsVisualization({
     draw();
   }, [draw, pianoEdge]);
 
-  // Handle resize and video time updates
+  // Handle resize and animation updates
   useEffect(() => {
     if (!pianoEdge.point1 || !pianoEdge.point2) return;
 
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    const resizeObserver = new ResizeObserver(() => {
-      draw();
-    });
-
+    const resizeObserver = new ResizeObserver(draw);
     resizeObserver.observe(videoElement);
 
-    // Also redraw on video time updates for smooth animation
-    const interval = setInterval(() => {
-      draw();
-    }, 16); // ~60fps
+    const interval = setInterval(draw, FRAME_INTERVAL);
 
     return () => {
       resizeObserver.disconnect();
