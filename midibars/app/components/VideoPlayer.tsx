@@ -7,7 +7,7 @@ interface MuxPlayerComponentProps {
   playbackId: string;
 }
 
-export default function MuxPlayerComponent({
+export default function VideoThumbnailEditor({
   playbackId,
 }: MuxPlayerComponentProps) {
   const [scale, setScale] = useState(1);
@@ -19,8 +19,7 @@ export default function MuxPlayerComponent({
   const [currentSide, setCurrentSide] = useState("");
   const [rotateStart, setRotateStart] = useState({ angle: 0, x: 0, y: 0 });
   const [hasLoadedState, setHasLoadedState] = useState(false);
-
-  const containerRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const imageUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?time=${0}`;
 
@@ -36,6 +35,7 @@ export default function MuxPlayerComponent({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging === "rotate") {
+      if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
@@ -50,26 +50,34 @@ export default function MuxPlayerComponent({
         y: prev.y + e.movementY,
       }));
     } else if (isDragging === "corner" && currentCorner) {
-      //   setSize((prev) => {
-      //     const newSize = { ...prev };
-      //     if (currentCorner.includes("e")) {
-      //       newSize.width = Math.max(50, prev.width + e.movementX);
-      //     }
-      //     if (currentCorner.includes("w")) {
-      //       const delta = -e.movementX;
-      //       newSize.width = Math.max(50, prev.width + delta);
-      //       newSize.x = prev.x - delta;
-      //     }
-      //     if (currentCorner.includes("s")) {
-      //       newSize.height = Math.max(50, prev.height + e.movementY);
-      //     }
-      //     if (currentCorner.includes("n")) {
-      //       const delta = -e.movementY;
-      //       newSize.height = Math.max(50, prev.height + delta);
-      //       newSize.y = prev.y - delta;
-      //     }
-      //     return newSize;
-      //   });
+      setSize((prev) => {
+        const newSize = { ...prev };
+        const rad = (rotation * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        
+        // Rotate movement to match image rotation
+        const rotatedX = e.movementX * cos + e.movementY * sin;
+        const rotatedY = -e.movementX * sin + e.movementY * cos;
+        
+        if (currentCorner.includes("e")) {
+          newSize.width = Math.max(50, prev.width + rotatedX);
+        }
+        if (currentCorner.includes("w")) {
+          const delta = -rotatedX;
+          newSize.width = Math.max(50, prev.width + delta);
+          newSize.x = prev.x - delta;
+        }
+        if (currentCorner.includes("s")) {
+          newSize.height = Math.max(50, prev.height + rotatedY);
+        }
+        if (currentCorner.includes("n")) {
+          const delta = -rotatedY;
+          newSize.height = Math.max(50, prev.height + delta);
+          newSize.y = prev.y - delta;
+        }
+        return newSize;
+      });
     } else if (isDragging === "side" && currentSide) {
       const rad = (rotation * Math.PI) / 180;
       const cos = Math.cos(rad);
@@ -133,6 +141,7 @@ export default function MuxPlayerComponent({
 
   const handleRotate = (action: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
@@ -180,9 +189,13 @@ export default function MuxPlayerComponent({
     };
     saveState();
   }, [scale, rotation, size, crop]);
-
   return (
-    <div onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+    <div 
+      onMouseMove={(e) => {
+        handleMouseMove(e);
+      }} 
+      onMouseUp={handleMouseUp}
+    >
       <div
         ref={containerRef}
         style={{

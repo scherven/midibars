@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Upload, Music, FileAudio } from "lucide-react";
-import ReactAudioPlayer from "react-audio-player";
 import MidiViewer from "./MidiViewer";
 
 export default function FileUploadAreas({ id }: { id?: string }) {
@@ -40,12 +39,12 @@ export default function FileUploadAreas({ id }: { id?: string }) {
     }
   };
 
-  const handleDrop = (e) => {
-    console.log("hanldedorp");
+  const handleDrop = (e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    const file = e.dataTransfer.files[0];
+    const file = e.dataTransfer?.files[0];
+    if (!file) return;
     const mp3 = file.name.toLowerCase().endsWith("mp3");
     const midi =
       file.name.toLowerCase().endsWith("mid") ||
@@ -67,7 +66,7 @@ export default function FileUploadAreas({ id }: { id?: string }) {
   };
 
   useEffect(() => {
-    const preventDefaults = (e) => {
+    const preventDefaults = (e: DragEvent) => {
       e.preventDefault();
     };
 
@@ -80,11 +79,15 @@ export default function FileUploadAreas({ id }: { id?: string }) {
     };
   }, []);
 
-  const handleFileSelect = (e, type, acceptedExtensions) => {
-    const file = e.target.files[0];
+  const handleFileSelect = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: "mp3" | "midi",
+    acceptedExtensions: string[],
+  ) => {
+    const file = e.target.files?.[0];
     if (
       file &&
-      acceptedExtensions.some((ext) => file.name.toLowerCase().endsWith(ext))
+      acceptedExtensions.some((ext: string) => file.name.toLowerCase().endsWith(ext))
     ) {
       if (type === "mp3") {
         setMp3File(file);
@@ -111,13 +114,20 @@ export default function FileUploadAreas({ id }: { id?: string }) {
     acceptedFormats,
     acceptedExtensions,
     label,
+  }: {
+    type: "mp3" | "midi";
+    file: File | null;
+    icon: React.ComponentType<{ className?: string; size?: number }>;
+    acceptedFormats: string;
+    acceptedExtensions: string[];
+    label: string;
   }) => {
     const handleBoxDrop = (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
       const file = e.dataTransfer.files[0];
       if (file) {
-        const matches = acceptedExtensions.some((ext) =>
+        const matches = acceptedExtensions.some((ext: string) =>
           file.name.toLowerCase().endsWith(ext)
         );
         if (matches) {
@@ -158,7 +168,7 @@ export default function FileUploadAreas({ id }: { id?: string }) {
           <p className="text-xs text-gray-500 mt-1">
             {(file.size / 1024 / 1024).toFixed(2)} MB
           </p>
-          {uploading[type] && (
+          {uploading[type as keyof typeof uploading] && (
             <p className="text-xs text-blue-500 mt-1">Uploading...</p>
           )}
         </div>
@@ -197,30 +207,6 @@ export default function FileUploadAreas({ id }: { id?: string }) {
             label="Upload MIDI File"
           />
         </div>
-        {(mp3File || midiFile) && (
-          <div className="mt-8 p-6 bg-white rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">Uploaded Files:</h2>
-            <div className="space-y-2">
-              {mp3File && (
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <span className="font-medium">MP3:</span>
-                  <span className="text-sm text-gray-600">{mp3File.name}</span>
-                  <ReactAudioPlayer
-                    src={URL.createObjectURL(mp3File)}
-                    autoPlay
-                    controls
-                  />
-                </div>
-              )}
-              {midiFile && (
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <span className="font-medium">MIDI:</span>
-                  <span className="text-sm text-gray-600">{midiFile.name}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
       <MidiViewer midiFile={midiFile} mp3File={mp3File} />
     </div>

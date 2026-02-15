@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useParams } from "next/navigation";
 import MuxPlayer from "@mux/mux-player-react";
 import MidiViewer from "@/app/components/MidiViewer";
 import { MidiFile, MidiEventData } from "@/app/components/MidiReader";
-import Image from "next/image";
 
 // Extract notes from MIDI events (same logic as MidiViewer)
 function extractNotes(events: MidiEventData[]): Array<{
@@ -46,28 +45,9 @@ function extractNotes(events: MidiEventData[]): Array<{
   return notes;
 }
 
-const NOTE_NAMES = [
-  "C",
-  "C#",
-  "D",
-  "D#",
-  "E",
-  "F",
-  "F#",
-  "G",
-  "G#",
-  "A",
-  "A#",
-  "B",
-];
-function noteNumberToName(n: number): string {
-  const octave = Math.floor(n / 12) - 1;
-  return `${NOTE_NAMES[n % 12]}${octave}`;
-}
 
 export default function AlignPage() {
   const params = useParams();
-  const router = useRouter();
   const id = params.id as string;
 
   const [mp3File, setMp3File] = useState<File | null>(null);
@@ -112,20 +92,13 @@ export default function AlignPage() {
     reader.readAsArrayBuffer(midiFile);
   }, [midiFile]);
 
-  // Extract notes from MIDI
   const notes = useMemo(() => {
     if (!midiData) return [];
     const allNotes = midiData.tracks.flatMap((track) =>
       extractNotes(track.events),
     );
-    // Sort by startTick
     return allNotes.sort((a, b) => a.startTick - b.startTick);
   }, [midiData]);
-
-  // First 20 notes for selection UI
-  const first20Notes = useMemo(() => {
-    return notes.slice(0, 20);
-  }, [notes]);
 
   // Load files from server API
   useEffect(() => {
@@ -211,7 +184,6 @@ export default function AlignPage() {
 
   const [midiPlayheadTime, setMidiPlayheadTime] = useState<number>(0);
   const [mp3PlayheadTime, setMp3PlayheadTime] = useState<number>(0);
-  const [draggingPlayhead, setDraggingPlayhead] = useState<"midi" | "mp3" | null>(null);
   const [waveform, setWaveform] = useState<number[]>([]);
 
   // Load waveform data from MidiViewer or compute it
@@ -286,6 +258,8 @@ export default function AlignPage() {
     };
   }, [mp3File]);
 
+  const [currentMp3Percent, setCurrentMp3Percent] = useState<number | null>(null);
+
   const handleVideoTimeUpdate = (e: any) => {
     let currentVideoTime = 0;
     if (e?.detail?.currentTime !== undefined) {
@@ -295,24 +269,19 @@ export default function AlignPage() {
       currentVideoTime = videoRef.current.currentTime;
       setVideoTime(currentVideoTime);
     }
-    
-    // Sync MP3 position when video time updates (for seeking)
-    if (alignmentData && audioRef.current && videoRef.current) {
+
+    // Calculate current MP3 percentage based on alignment
+    if (alignmentData && audioRef.current && audioRef.current.duration) {
       const videoStartTime = alignmentData.videoTime;
       const mp3StartTime = alignmentData.mp3Time; // normalized 0-1
-      const audioDuration = audioRef.current.duration || 0;
-      
-      if (audioDuration > 0) {
-        const mp3StartSeconds = mp3StartTime * audioDuration;
-        const videoOffset = currentVideoTime - videoStartTime;
-        const targetMp3Time = mp3StartSeconds + videoOffset;
-        
-        // Only update if significantly different to avoid constant seeking
-        const currentMp3Time = audioRef.current.currentTime || 0;
-        if (Math.abs(currentMp3Time - targetMp3Time) > 0.05) {
-          audioRef.current.currentTime = Math.max(0, Math.min(targetMp3Time, audioDuration));
-        }
-      }
+      const audioDuration = audioRef.current.duration;
+      const mp3StartSeconds = mp3StartTime * audioDuration;
+      const videoOffset = currentVideoTime - videoStartTime;
+      const targetMp3Time = mp3StartSeconds + videoOffset;
+      const mp3Percent = (targetMp3Time / audioDuration) * 100;
+      setCurrentMp3Percent(Math.max(0, Math.min(100, mp3Percent)));
+    } else {
+      setCurrentMp3Percent(null);
     }
   };
 
@@ -411,32 +380,6 @@ export default function AlignPage() {
     return noteTickRatio;
   };
 
-  // Find next sound in MP3 after a given time (normalized 0-1)
-  const findNextMp3Sound = (time: number) => {
-    if (waveform.length === 0) return time;
-    const threshold = 0.1; // Minimum amplitude to consider as "sound"
-    const bucketIndex = Math.min(
-      Math.floor(time * waveform.length),
-      waveform.length - 1,
-    );
-
-    // Look forward for next sound (start from current position or slightly ahead)
-    for (let i = bucketIndex; i < waveform.length; i++) {
-      if (waveform[i] > threshold) {
-        return i / waveform.length;
-      }
-    }
-    
-    // If no sound found ahead, look backward for the last sound
-    for (let i = bucketIndex; i >= 0; i--) {
-      if (waveform[i] > threshold) {
-        return i / waveform.length;
-      }
-    }
-    
-    // If no sound found at all, return current time
-    return time;
-  };
 
   const handleMidiPlayheadDrag = (time: number) => {
     const snapped = findNextMidiNote(time);
@@ -459,14 +402,23 @@ export default function AlignPage() {
     }
   };
 
-  const handleMidiNoteSelect = (noteIndex: number) => {
-    setSelectedMidiNoteIndex(noteIndex);
-  };
 
   // Handle MP3 time selection via click (no snapping)
   const handleMp3TimeClick = (time: number) => {
     setSelectedMp3Time(time);
     setMp3PlayheadTime(time);
+    
+    // If video is playing and we have alignment data, update audio position based on new MP3 alignment
+    if (selectedVideoTime !== null && audioRef.current && videoRef.current && isVideoPlaying) {
+      const audioDuration = audioRef.current.duration || 0;
+      if (audioDuration > 0) {
+        const mp3StartSeconds = time * audioDuration;
+        const currentVideoTime = videoRef.current.currentTime || 0;
+        const videoOffset = currentVideoTime - selectedVideoTime;
+        const targetMp3Time = mp3StartSeconds + videoOffset;
+        audioRef.current.currentTime = Math.max(0, Math.min(targetMp3Time, audioDuration));
+      }
+    }
     
     // Auto-advance to aligned if all three are selected
     if (selectedVideoTime !== null && selectedMidiNoteIndex !== null) {
@@ -488,6 +440,15 @@ export default function AlignPage() {
     
     setSelectedMp3Time(newTime);
     setMp3PlayheadTime(newTime);
+    
+    // If video is playing and we have alignment data, update audio position based on new MP3 alignment
+    if (selectedVideoTime !== null && audioRef.current && videoRef.current && isVideoPlaying) {
+      const mp3StartSeconds = newTime * audioDuration;
+      const currentVideoTime = videoRef.current.currentTime || 0;
+      const videoOffset = currentVideoTime - selectedVideoTime;
+      const targetMp3Time = mp3StartSeconds + videoOffset;
+      audioRef.current.currentTime = Math.max(0, Math.min(targetMp3Time, audioDuration));
+    }
   };
 
   // Save alignment when all three are selected and auto-advance to aligned state
@@ -532,6 +493,15 @@ export default function AlignPage() {
       localStorage.setItem(`alignment-${id}`, JSON.stringify(alignmentData));
       setAlignmentData(alignmentData);
       console.log("Alignment data saved (single source of truth):", alignmentData);
+      
+      // If video is playing, update audio position based on new alignment
+      if (audioRef.current && videoRef.current && isVideoPlaying && audioRef.current.duration) {
+        const mp3StartSeconds = selectedMp3Time * audioRef.current.duration;
+        const currentVideoTime = videoRef.current.currentTime || 0;
+        const videoOffset = currentVideoTime - selectedVideoTime;
+        const targetMp3Time = mp3StartSeconds + videoOffset;
+        audioRef.current.currentTime = Math.max(0, Math.min(targetMp3Time, audioRef.current.duration));
+      }
     }
   };
 
@@ -592,22 +562,27 @@ export default function AlignPage() {
         background: "#020617",
         color: "#e2e8f0",
         padding: "20px",
-        paddingBottom: "140px", // Add space at bottom so fixed MidiViewer doesn't cover content
+        paddingBottom: "20px",
       }}
     >
       <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-        {/* Header */}
-        <div style={{ marginBottom: "20px" }}>
+        <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 600 }}>
-            Align Video, MIDI, and MP3
+            Align Media
           </h1>
-          <p style={{ margin: "8px 0 0", color: "#64748b", fontSize: "14px" }}>
-            {alignmentStep === "video"
-              ? "Play video and click 'Select this moment' when the first note is pressed"
-              : alignmentStep === "aligned"
-                ? "Alignment complete! Use video controls to play/pause all media. Drag MIDI playhead to adjust, click MP3 timeline to set position. Use left/right arrows to fine-tune MP3."
-                : "Drag the MIDI playhead to select the note, then click on the MP3 timeline to set the MP3 position. Use left/right arrows to fine-tune."}
-          </p>
+          {currentMp3Percent !== null && alignmentData && (
+            <div style={{
+              padding: "8px 16px",
+              background: "#1e293b",
+              borderRadius: "6px",
+              border: "1px solid #334155",
+            }}>
+              <span style={{ fontSize: "14px", color: "#94a3b8", marginRight: "8px" }}>MP3:</span>
+              <span style={{ fontSize: "16px", fontWeight: 600, color: "#e2e8f0" }}>
+                {currentMp3Percent.toFixed(1)}%
+              </span>
+            </div>
+          )}
         </div>
 
 
@@ -648,7 +623,7 @@ export default function AlignPage() {
                     : "none",
                 }}
               />
-              {alignmentStep === "video" && (
+              {(true || !selectedVideoTime || alignmentStep === "video") && (
                 <div
                   style={{
                     marginTop: "12px",
@@ -674,7 +649,7 @@ export default function AlignPage() {
                       zIndex: 102,
                     }}
                   >
-                    Select this moment ({videoTime.toFixed(2)}s)
+                    {selectedVideoTime ? `Update: ${videoTime.toFixed(2)}s` : `Select this moment (${videoTime.toFixed(2)}s)`}
                   </button>
                 </div>
               )}
@@ -683,41 +658,6 @@ export default function AlignPage() {
         )}
 
 
-        {/* Alignment info */}
-        {alignmentStep === "aligned" && alignmentData && (
-          <div
-            style={{
-              marginBottom: "20px",
-              padding: "16px",
-              background: "#11131a",
-              borderRadius: "8px",
-              border: "1px solid #1e2230",
-            }}
-          >
-            <h3 style={{ margin: "0 0 12px", fontSize: "16px" }}>
-              Alignment Complete! Use video controls to play/pause all media
-            </h3>
-            <p style={{ margin: 0, color: "#64748b", fontSize: "14px" }}>
-              Video: {alignmentData.videoTime.toFixed(2)}s | MIDI Note: {alignmentData.midiNoteIndex} | MP3: {(alignmentData.mp3Time * 100).toFixed(1)}%
-            </p>
-          </div>
-        )}
-
-        {/* MP3/MIDI viewer with separate playheads */}
-        {mp3File && (
-          <div style={{ marginTop: "20px", padding: "8px", background: "#1e293b", borderRadius: "4px" }}>
-            <p style={{ fontSize: "12px", color: "#94a3b8" }}>
-              MP3 loaded: {mp3File.name} ({(mp3File.size / 1024 / 1024).toFixed(2)} MB)
-            </p>
-          </div>
-        )}
-        {midiFile && (
-          <div style={{ marginTop: "8px", padding: "8px", background: "#1e293b", borderRadius: "4px" }}>
-            <p style={{ fontSize: "12px", color: "#94a3b8" }}>
-              MIDI loaded: {midiFile.name} ({(midiFile.size / 1024).toFixed(2)} KB)
-            </p>
-          </div>
-        )}
         <MidiViewer
           midiFile={midiFile}
           mp3File={mp3File}
@@ -727,7 +667,6 @@ export default function AlignPage() {
           onMp3TimeClick={handleMp3TimeClick}
           onMp3ArrowKey={handleMp3ArrowKey}
           alignmentMode={true}
-          waveformData={waveform}
         />
       </div>
     </div>

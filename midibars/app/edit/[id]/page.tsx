@@ -1,5 +1,5 @@
 import MIDIPlayer from "@/app/components/FileUploadAreas";
-import VideoPlayer from "@/app/components/VideoPlayer";
+import VideoThumbnailEditor from "@/app/components/VideoPlayer";
 import EditPageClient from "./EditPageClient";
 import { Mux } from "@mux/mux-node";
 
@@ -22,7 +22,7 @@ export default async function WatchPage({
         <MIDIPlayer id={id} />
 
         {asset.playback_ids?.[0]?.id ? (
-          <VideoPlayer playbackId={asset.playback_ids[0].id} />
+          <VideoThumbnailEditor playbackId={asset.playback_ids[0].id} />
         ) : (
           <div
             style={{

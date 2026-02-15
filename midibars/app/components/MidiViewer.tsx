@@ -46,57 +46,46 @@ function extractNotes(events: MidiEventData[]): ParsedNote[] {
 export default function MidiViewer({
   midiFile,
   mp3File,
-  onMp3TimeSelect,
   midiPlayheadTime,
   mp3PlayheadTime,
   onMidiPlayheadDrag,
   onMp3TimeClick,
   onMp3ArrowKey,
   alignmentMode = false,
-  waveformData,
 }: {
   midiFile: File | null;
   mp3File: File | null;
-  onMp3TimeSelect?: (time: number) => void;
   midiPlayheadTime?: number;
   mp3PlayheadTime?: number;
   onMidiPlayheadDrag?: (time: number) => void;
   onMp3TimeClick?: (time: number) => void;
   onMp3ArrowKey?: (direction: "left" | "right") => void;
   alignmentMode?: boolean;
-  waveformData?: number[];
 }) {
   const CONTROL_COLUMN_WIDTH = 40; // px reserved for controls on the left
   const COLUMN_GAP = 8; // px gap between controls and timeline/midi
 
   const [midiData, setMidiData] = useState<MidiFile | null>(null);
-  const hasLogged = useRef(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [duration, setDuration] = useState(0); // visible MP3 duration after trimming silence
-  const [audioLeadIn, setAudioLeadIn] = useState(0); // seconds of trimmed silence at start
-  const [currentTime, setCurrentTime] = useState(0); // playback position in visible timeline seconds
-  const [cropStart, setCropStart] = useState(0); // seconds
-  const [cropEnd, setCropEnd] = useState(0); // seconds
-  const [dragging, setDragging] = useState<null | "playhead" | "start" | "end">(
-    null,
-  );
+  const [duration, setDuration] = useState(0);
+  const [audioLeadIn, setAudioLeadIn] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const combinedViewRef = useRef<HTMLDivElement | null>(null);
-  const [viewStart, setViewStart] = useState(0); // visible window start (seconds, trimmed)
-  const [viewEnd, setViewEnd] = useState(0); // visible window end (seconds, trimmed)
-  const [waveform, setWaveform] = useState<number[]>([]); // simple amplitude envelope for MP3 (trimmed so index 0 ≈ first sound)
+  const [viewStart, setViewStart] = useState(0);
+  const [viewEnd, setViewEnd] = useState(0);
+  const [waveform, setWaveform] = useState<number[]>([]);
 
   useEffect(() => {
-    if (!midiFile || hasLogged.current) return;
+    if (!midiFile) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       const arrayBuffer = e.target!.result as ArrayBuffer;
       const bytes = new Uint8Array(arrayBuffer);
       const midi = new MidiFile(bytes);
       setMidiData(midi);
-      hasLogged.current = true;
     };
     reader.onerror = (e) => console.error("Error reading file:", e);
     reader.readAsArrayBuffer(midiFile);
@@ -109,8 +98,6 @@ export default function MidiViewer({
       setAudioUrl(null);
       setDuration(0);
       setCurrentTime(0);
-      setCropStart(0);
-      setCropEnd(0);
       setIsPlaying(false);
       setViewStart(0);
       setViewEnd(0);
@@ -132,8 +119,6 @@ export default function MidiViewer({
       setWaveform([]);
       setDuration(0);
       setAudioLeadIn(0);
-      setCropStart(0);
-      setCropEnd(0);
       setViewStart(0);
       setViewEnd(0);
       return;
@@ -201,8 +186,6 @@ export default function MidiViewer({
             setWaveform(trimmed);
             setAudioLeadIn(leadInSeconds);
             setDuration(visibleDuration);
-            setCropStart(0);
-            setCropEnd(visibleDuration);
             setViewStart(0);
             setViewEnd(visibleDuration);
             audioCtx.close();
@@ -223,14 +206,11 @@ export default function MidiViewer({
     };
   }, [mp3File]);
 
-  // Audio element event handlers
   const handleLoadedMetadata = () => {
     if (!audioRef.current) return;
     const d = audioRef.current.duration || 0;
     setDuration(d);
     setCurrentTime(0);
-    setCropStart(0);
-    setCropEnd(d);
     setViewStart(0);
     setViewEnd(d);
   };
@@ -240,24 +220,13 @@ export default function MidiViewer({
     const rawT = audioRef.current.currentTime;
     const t = Math.max(0, rawT - audioLeadIn);
     setCurrentTime(t);
-    // Stop playback at crop end if defined
-    if (t > cropEnd && cropEnd > 0) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = audioLeadIn + cropStart;
-      setIsPlaying(false);
-    }
   };
 
   const handlePlayPause = () => {
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) {
-      // Ensure we start inside the crop window
-      const startTime = Math.min(
-        Math.max(currentTime, cropStart),
-        cropEnd || duration,
-      );
-      audio.currentTime = Math.max(0, audioLeadIn + startTime);
+      audio.currentTime = Math.max(0, audioLeadIn + currentTime);
       void audio.play();
     } else {
       audio.pause();
@@ -274,10 +243,7 @@ export default function MidiViewer({
 
   const handleAudioEnded = () => {
     setIsPlaying(false);
-    if (audioRef.current) {
-      audioRef.current.currentTime = cropStart;
-      setCurrentTime(cropStart);
-    }
+    setCurrentTime(0);
   };
 
   const timeToPercent = (time: number) => {
@@ -300,87 +266,46 @@ export default function MidiViewer({
 
   const nudgeTime = (deltaSeconds: number) => {
     if (!duration) return;
-    const min = cropStart;
-    const max = cropEnd || duration;
-    const target = clamp(currentTime + deltaSeconds, min, max);
+    const target = clamp(currentTime + deltaSeconds, 0, duration);
     const snapped = Math.round(target * 10) / 10;
     setCurrentTime(snapped);
     if (audioRef.current) {
-      audioRef.current.currentTime = Math.max(
-        0,
-        audioLeadIn + snapped,
-      );
+      audioRef.current.currentTime = Math.max(0, audioLeadIn + snapped);
     }
   };
 
-  const updateFromClientX = (
-    clientX: number,
-    target: "playhead" | "start" | "end",
-  ): number | null => {
+  const updateFromClientX = (clientX: number): number | null => {
     const el = timelineRef.current;
     if (!el || !duration) return null;
     const rect = el.getBoundingClientRect();
     const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
-    // Map within current visible window
     const start = viewStart;
     const end = viewEnd > start ? viewEnd : duration;
     const span = end - start || duration;
     const rawTime = start + ratio * span;
-    // Snap to 0.1s resolution
     const snapped = Math.round(rawTime * 10) / 10;
-
-    if (target === "playhead") {
-      setCurrentTime(snapped);
-      if (audioRef.current) {
-        audioRef.current.currentTime = snapped;
-      }
-    } else if (target === "start") {
-      const newStart = clamp(snapped, 0, cropEnd - 0.1);
-      setCropStart(newStart);
-      if (currentTime < newStart) {
-        setCurrentTime(newStart);
-        if (audioRef.current) {
-          audioRef.current.currentTime = newStart;
-        }
-      }
-    } else if (target === "end") {
-      const newEnd = clamp(snapped, cropStart + 0.1, duration);
-      setCropEnd(newEnd);
-      if (currentTime > newEnd) {
-        setCurrentTime(newEnd);
-        if (audioRef.current) {
-          audioRef.current.currentTime = newEnd;
-        }
-      }
+    setCurrentTime(snapped);
+    if (audioRef.current) {
+      audioRef.current.currentTime = Math.max(0, audioLeadIn + snapped);
     }
     return snapped;
   };
 
-  // Global mouse listeners for dragging handles / playhead
+  const [dragging, setDragging] = useState(false);
+
   useEffect(() => {
     if (!dragging) return;
-
     const handleMove = (e: MouseEvent) => {
-      updateFromClientX(e.clientX, dragging);
+      updateFromClientX(e.clientX);
     };
-    const handleUp = () => {
-      // When finishing a crop drag, zoom the view to the selected window
-      if (dragging === "start" || dragging === "end") {
-        const start = Math.max(0, Math.min(cropStart, cropEnd));
-        const end = Math.max(start + 0.1, Math.max(cropStart, cropEnd));
-        setViewStart(start);
-        setViewEnd(end);
-      }
-      setDragging(null);
-    };
-
+    const handleUp = () => setDragging(false);
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", handleUp);
     return () => {
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("mouseup", handleUp);
     };
-  }, [dragging, duration, cropStart, cropEnd, currentTime]);
+  }, [dragging, duration, viewStart, viewEnd, audioLeadIn]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     // In alignment mode, arrow keys control MP3 playhead
@@ -452,17 +377,12 @@ export default function MidiViewer({
       tabIndex={0}
       onKeyDown={handleKeyDown}
       style={{
-        position: "fixed",
-        left: 0,
-        right: 0,
-        bottom: 0,
         width: "100%",
         fontFamily: "'Courier New', monospace",
         background: "#020617",
         padding: "4px 8px 4px",
         boxSizing: "border-box",
         borderTop: "1px solid #1e2230",
-        zIndex: 10, // Lower z-index so video controls aren't covered
       }}
     >
       {/* Hidden audio element driving the custom MP3 viewer */}
@@ -527,9 +447,8 @@ export default function MidiViewer({
                     const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
                     onMp3TimeClick(ratio);
                   } else if (!alignmentMode) {
-                    // Normal mode: clicking base timeline moves playhead and starts drag
-                    const time = updateFromClientX(e.clientX, "playhead");
-                    setDragging("playhead");
+                    updateFromClientX(e.clientX);
+                    setDragging(true);
                   }
                 }}
                 style={{
@@ -605,19 +524,6 @@ export default function MidiViewer({
                   </svg>
                 )}
 
-                {/* Crop region highlight */}
-                {duration > 0 && cropEnd > cropStart && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      bottom: 0,
-                      left: `${timeToPercent(cropStart)}%`,
-                      width: `${timeToPercent(cropEnd) - timeToPercent(cropStart)}%`,
-                      background: "rgba(59, 130, 246, 0.25)",
-                    }}
-                  />
-                )}
 
               </div>
             </div>
