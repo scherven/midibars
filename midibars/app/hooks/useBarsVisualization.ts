@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { MidiFile, TempoMetaEvent } from "@/app/components/MidiReader";
 import { ticksToSeconds } from "@/app/utils/midiUtils";
+import { calculateNotePositionAllKeys } from "@/app/components/BarsVisualization";
 
 type Note = {
   note: number;
@@ -78,7 +79,7 @@ export function useBarsVisualization(
     }
 
     return visibleNotes.map((noteData) => {
-      const notePosition = (noteData.note / 127) * 100;
+      const notePosition = calculateNotePositionAllKeys(noteData.note);
       const timeUntilStart = noteData.startTime - currentMidiTime;
       const clampedTime = Math.max(0.001, Math.min(2, timeUntilStart));
       const verticalPosition = 50 - (clampedTime / 2) * 50;
