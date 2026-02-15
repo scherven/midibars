@@ -20,7 +20,10 @@ export default function MainPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mode, setMode] = useState<"normal" | "align" | "bars">("normal");
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [pianoEdge, setPianoEdge] = useState<{ point1: { x: number; y: number } | null; point2: { x: number; y: number } | null }>({
+  const [pianoEdge, setPianoEdge] = useState<{
+    point1: { x: number; y: number } | null;
+    point2: { x: number; y: number } | null;
+  }>({
     point1: null,
     point2: null,
   });
@@ -159,14 +162,23 @@ export default function MainPage() {
       </div>
 
       {/* Main Content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
         <Toolbar
           sidebarOpen={sidebarOpen}
           mode={mode}
           onSidebarToggle={() => setSidebarOpen(true)}
           onModeChange={setMode}
           isDrawingPianoEdge={isDrawingPianoEdge}
-          onTogglePianoEdgeDrawing={() => setIsDrawingPianoEdge(!isDrawingPianoEdge)}
+          onTogglePianoEdgeDrawing={() =>
+            setIsDrawingPianoEdge(!isDrawingPianoEdge)
+          }
         />
 
         {/* Video Player Area */}
@@ -188,8 +200,23 @@ export default function MainPage() {
           )}
 
           {playbackId && (
-            <div style={{ marginBottom: "20px", maxWidth: "1200px", marginLeft: "auto", marginRight: "auto" }}>
-              <div style={{ background: "#11131a", borderRadius: "8px", padding: "20px", border: "1px solid #1e2230", position: "relative" }}>
+            <div
+              style={{
+                marginBottom: "20px",
+                maxWidth: "1200px",
+                marginLeft: "auto",
+                marginRight: "auto",
+              }}
+            >
+              <div
+                style={{
+                  background: "#11131a",
+                  borderRadius: "8px",
+                  padding: "20px",
+                  border: "1px solid #1e2230",
+                  position: "relative",
+                }}
+              >
                 <EditableVideoPlayer
                   playbackId={playbackId}
                   videoRef={videoRef}
@@ -216,17 +243,22 @@ export default function MainPage() {
                       setIsDrawingPianoEdge(false);
                     }
                   }}
+                  bars={
+                    mode === "bars" &&
+                    midiData &&
+                    notes.length > 0 &&
+                    alignmentData && (
+                      <BarsVisualization
+                        noteBars={noteBars}
+                        videoTime={videoTime}
+                        currentMidiTime={currentMidiTime}
+                        pianoEdge={pianoEdge}
+                        videoRef={videoRef}
+                      />
+                    )
+                  }
                 />
                 {/* Bars Visualization - positioned over video */}
-                {mode === "bars" && midiData && notes.length > 0 && alignmentData && (
-                  <BarsVisualization
-                    noteBars={noteBars}
-                    videoTime={videoTime}
-                    currentMidiTime={currentMidiTime}
-                    pianoEdge={pianoEdge}
-                    videoRef={videoRef}
-                  />
-                )}
               </div>
             </div>
           )}

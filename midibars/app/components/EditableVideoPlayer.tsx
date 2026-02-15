@@ -19,8 +19,12 @@ interface EditableVideoPlayerProps {
   selectedMidiNoteIndex?: number | null;
   notes?: Array<{ startTick: number; durationTicks: number }>;
   isDrawingPianoEdge?: boolean;
-  pianoEdge?: { point1: { x: number; y: number } | null; point2: { x: number; y: number } | null };
+  pianoEdge?: {
+    point1: { x: number; y: number } | null;
+    point2: { x: number; y: number } | null;
+  };
   onPianoEdgeClick?: (x: number, y: number) => void;
+  bars?: React.ReactNode;
 }
 
 export default function EditableVideoPlayer({
@@ -42,21 +46,26 @@ export default function EditableVideoPlayer({
   isDrawingPianoEdge = false,
   pianoEdge = { point1: null, point2: null },
   onPianoEdgeClick,
+  bars,
 }: EditableVideoPlayerProps) {
   const internalVideoRef = useRef<HTMLVideoElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentMp3Percent, setCurrentMp3Percent] = useState<number | null>(null);
-  const [currentMidiPercent, setCurrentMidiPercent] = useState<number | null>(null);
-  
+  const [currentMp3Percent, setCurrentMp3Percent] = useState<number | null>(
+    null,
+  );
+  const [currentMidiPercent, setCurrentMidiPercent] = useState<number | null>(
+    null,
+  );
+
   // Mux video URL
   const videoUrl = `https://stream.mux.com/${playbackId}.m3u8`;
-  
+
   // Sync refs
   useEffect(() => {
     if (videoRef) {
-      if (typeof videoRef === 'function') {
+      if (typeof videoRef === "function") {
         videoRef(internalVideoRef.current);
       } else {
         videoRef.current = internalVideoRef.current;
@@ -74,15 +83,22 @@ export default function EditableVideoPlayer({
       setDuration(dur);
     };
 
-    player.addEventListener('loadedmetadata', handleLoadedMetadata);
+    player.addEventListener("loadedmetadata", handleLoadedMetadata);
     return () => {
-      player.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      player.removeEventListener("loadedmetadata", handleLoadedMetadata);
     };
   }, [playbackId]);
 
   // Calculate MP3% only when selectedVideoTime changes (user clicks select/update)
   useEffect(() => {
-    if (alignMode && selectedVideoTime !== null && selectedVideoTime !== undefined && alignmentData && audioRef?.current && audioRef.current.duration) {
+    if (
+      alignMode &&
+      selectedVideoTime !== null &&
+      selectedVideoTime !== undefined &&
+      alignmentData &&
+      audioRef?.current &&
+      audioRef.current.duration
+    ) {
       const videoStartTime = alignmentData.videoTime;
       const mp3StartTime = alignmentData.mp3Time; // normalized 0-1
       const audioDuration = audioRef.current.duration;
@@ -91,18 +107,29 @@ export default function EditableVideoPlayer({
       const targetMp3Time = mp3StartSeconds + videoOffset;
       const mp3Percent = (targetMp3Time / audioDuration) * 100;
       setCurrentMp3Percent(Math.max(0, Math.min(100, mp3Percent)));
-    } else if (!alignMode || selectedVideoTime === null || selectedVideoTime === undefined) {
+    } else if (
+      !alignMode ||
+      selectedVideoTime === null ||
+      selectedVideoTime === undefined
+    ) {
       setCurrentMp3Percent(null);
     }
   }, [alignMode, alignmentData, selectedVideoTime, audioRef]);
 
   // Calculate MIDI% only when selectedMidiNoteIndex changes (user selects MIDI note)
   useEffect(() => {
-    if (alignMode && selectedMidiNoteIndex !== null && selectedMidiNoteIndex !== undefined && notes.length > 0) {
+    if (
+      alignMode &&
+      selectedMidiNoteIndex !== null &&
+      selectedMidiNoteIndex !== undefined &&
+      notes.length > 0
+    ) {
       const firstNoteTick = Math.min(...notes.map((n) => n.startTick));
-      const maxTick = Math.max(...notes.map((n) => n.startTick + n.durationTicks));
+      const maxTick = Math.max(
+        ...notes.map((n) => n.startTick + n.durationTicks),
+      );
       const totalTicks = maxTick - firstNoteTick;
-      
+
       if (totalTicks > 0 && selectedMidiNoteIndex < notes.length) {
         const selectedNote = notes[selectedMidiNoteIndex];
         const notePosition = selectedNote.startTick - firstNoteTick;
@@ -111,7 +138,11 @@ export default function EditableVideoPlayer({
       } else {
         setCurrentMidiPercent(null);
       }
-    } else if (!alignMode || selectedMidiNoteIndex === null || selectedMidiNoteIndex === undefined) {
+    } else if (
+      !alignMode ||
+      selectedMidiNoteIndex === null ||
+      selectedMidiNoteIndex === undefined
+    ) {
       setCurrentMidiPercent(null);
     }
   }, [alignMode, selectedMidiNoteIndex, notes]);
@@ -120,10 +151,10 @@ export default function EditableVideoPlayer({
   const handleTimeUpdateInternal = () => {
     const player = internalVideoRef.current;
     if (!player) return;
-    
+
     const time = player.currentTime || 0;
     setCurrentTime(time);
-    
+
     if (onTimeUpdate) {
       onTimeUpdate({ detail: { currentTime: time } });
     }
@@ -143,14 +174,14 @@ export default function EditableVideoPlayer({
     }
     setIsPlaying(false);
   };
-  
+
   // Handle seeking
   const handleSeekingInternal = () => {
     if (onSeeking) {
       onSeeking();
     }
   };
-  
+
   const handleSeekedInternal = () => {
     if (onSeeked) {
       onSeeked();
@@ -161,7 +192,7 @@ export default function EditableVideoPlayer({
   const handlePlayPause = () => {
     const player = internalVideoRef.current;
     if (!player) return;
-    
+
     if (isPlaying) {
       player.pause();
     } else {
@@ -172,7 +203,7 @@ export default function EditableVideoPlayer({
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const player = internalVideoRef.current;
     if (!player) return;
-    
+
     const newTime = parseFloat(e.target.value);
     player.currentTime = newTime;
     setCurrentTime(newTime);
@@ -193,7 +224,14 @@ export default function EditableVideoPlayer({
           zIndex: 100,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            flexWrap: "wrap",
+          }}
+        >
           {/* Play/Pause button */}
           <button
             onClick={handlePlayPause}
@@ -215,8 +253,17 @@ export default function EditableVideoPlayer({
           </button>
 
           {/* Time display */}
-          <div style={{ color: "#e2e8f0", fontSize: "14px", minWidth: "100px" }}>
-            {Math.floor(currentTime / 60)}:{(Math.floor(currentTime % 60)).toString().padStart(2, '0')} / {Math.floor(duration / 60)}:{(Math.floor(duration % 60)).toString().padStart(2, '0')}
+          <div
+            style={{ color: "#e2e8f0", fontSize: "14px", minWidth: "100px" }}
+          >
+            {Math.floor(currentTime / 60)}:
+            {Math.floor(currentTime % 60)
+              .toString()
+              .padStart(2, "0")}{" "}
+            / {Math.floor(duration / 60)}:
+            {Math.floor(duration % 60)
+              .toString()
+              .padStart(2, "0")}
           </div>
 
           {/* Seek slider */}
@@ -242,48 +289,97 @@ export default function EditableVideoPlayer({
           {alignMode && (
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               {currentMp3Percent !== null && (
-                <div style={{
-                  padding: "8px 16px",
-                  background: "#1e293b",
-                  borderRadius: "6px",
-                  border: "1px solid #334155",
-                }}>
-                  <span style={{ fontSize: "14px", color: "#94a3b8", marginRight: "8px" }}>MP3:</span>
-                  <span style={{ fontSize: "16px", fontWeight: 600, color: "#e2e8f0" }}>
+                <div
+                  style={{
+                    padding: "8px 16px",
+                    background: "#1e293b",
+                    borderRadius: "6px",
+                    border: "1px solid #334155",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      color: "#94a3b8",
+                      marginRight: "8px",
+                    }}
+                  >
+                    MP3:
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      color: "#e2e8f0",
+                    }}
+                  >
                     {currentMp3Percent.toFixed(1)}%
                   </span>
                 </div>
               )}
-              
+
               {currentMidiPercent !== null && (
-                <div style={{
-                  padding: "8px 16px",
-                  background: "#1e293b",
-                  borderRadius: "6px",
-                  border: "1px solid #334155",
-                }}>
-                  <span style={{ fontSize: "14px", color: "#94a3b8", marginRight: "8px" }}>MIDI:</span>
-                  <span style={{ fontSize: "16px", fontWeight: 600, color: "#e2e8f0" }}>
+                <div
+                  style={{
+                    padding: "8px 16px",
+                    background: "#1e293b",
+                    borderRadius: "6px",
+                    border: "1px solid #334155",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      color: "#94a3b8",
+                      marginRight: "8px",
+                    }}
+                  >
+                    MIDI:
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      color: "#e2e8f0",
+                    }}
+                  >
                     {currentMidiPercent.toFixed(1)}%
                   </span>
                 </div>
               )}
-              
+
               {/* Selected time display */}
-              {selectedVideoTime !== null && selectedVideoTime !== undefined && (
-                <div style={{
-                  padding: "8px 16px",
-                  background: "#1e293b",
-                  borderRadius: "6px",
-                  border: "1px solid #334155",
-                }}>
-                  <span style={{ fontSize: "14px", color: "#94a3b8", marginRight: "8px" }}>Selected:</span>
-                  <span style={{ fontSize: "16px", fontWeight: 600, color: "#e2e8f0" }}>
-                    {selectedVideoTime.toFixed(2)}s
-                  </span>
-                </div>
-              )}
-              
+              {selectedVideoTime !== null &&
+                selectedVideoTime !== undefined && (
+                  <div
+                    style={{
+                      padding: "8px 16px",
+                      background: "#1e293b",
+                      borderRadius: "6px",
+                      border: "1px solid #334155",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        color: "#94a3b8",
+                        marginRight: "8px",
+                      }}
+                    >
+                      Selected:
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "16px",
+                        fontWeight: 600,
+                        color: "#e2e8f0",
+                      }}
+                    >
+                      {selectedVideoTime.toFixed(2)}s
+                    </span>
+                  </div>
+                )}
+
               {/* Update button */}
               {onVideoTimeSelect && (
                 <button
@@ -299,7 +395,9 @@ export default function EditableVideoPlayer({
                     fontWeight: 500,
                   }}
                 >
-                  {selectedVideoTime ? `Update: ${currentVideoTime.toFixed(2)}s` : `Select: ${currentVideoTime.toFixed(2)}s`}
+                  {selectedVideoTime
+                    ? `Update: ${currentVideoTime.toFixed(2)}s`
+                    : `Select: ${currentVideoTime.toFixed(2)}s`}
                 </button>
               )}
             </div>
@@ -401,6 +499,7 @@ export default function EditableVideoPlayer({
             }}
           />
         )}
+        {bars}
       </div>
     </div>
   );

@@ -15,7 +15,10 @@ interface BarsVisualizationProps {
   }>;
   videoTime: number;
   currentMidiTime: number | null;
-  pianoEdge: { point1: { x: number; y: number } | null; point2: { x: number; y: number } | null };
+  pianoEdge: {
+    point1: { x: number; y: number } | null;
+    point2: { x: number; y: number } | null;
+  };
   videoRef: React.RefObject<any>;
 }
 
@@ -31,7 +34,8 @@ export default function BarsVisualization({
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const videoElement = videoRef.current;
-    if (!canvas || !videoElement || !pianoEdge.point1 || !pianoEdge.point2) return;
+    if (!canvas || !videoElement || !pianoEdge.point1 || !pianoEdge.point2)
+      return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -48,7 +52,7 @@ export default function BarsVisualization({
     ctx.scale(dpr, dpr);
     canvas.style.width = `${videoWidth}px`;
     canvas.style.height = `${videoHeight}px`;
-    
+
     // Update canvas position to match video
     const parent = videoElement.parentElement;
     if (parent) {
@@ -81,32 +85,32 @@ export default function BarsVisualization({
     ctx.lineWidth = 1;
 
     // Vertical grid lines
-    for (let x = 0; x <= videoWidth; x += gridXStep) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, videoHeight);
-      ctx.stroke();
-    }
+    // for (let x = 0; x <= videoWidth; x += gridXStep) {
+    //   ctx.beginPath();
+    //   ctx.moveTo(x, 0);
+    //   ctx.lineTo(x, videoHeight);
+    //   ctx.stroke();
+    // }
 
-    // Horizontal grid lines
-    for (let y = 0; y <= videoHeight; y += gridYStep) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(videoWidth, y);
-      ctx.stroke();
-    }
+    // // Horizontal grid lines
+    // for (let y = 0; y <= videoHeight; y += gridYStep) {
+    //   ctx.beginPath();
+    //   ctx.moveTo(0, y);
+    //   ctx.lineTo(videoWidth, y);
+    //   ctx.stroke();
+    // }
 
     // Draw piano edge line
-    ctx.save();
-    ctx.strokeStyle = "#10b981";
-    ctx.lineWidth = 2;
-    ctx.shadowColor = "rgba(16, 185, 129, 0.8)";
-    ctx.shadowBlur = 8;
-    ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.stroke();
-    ctx.restore();
+    // ctx.save();
+    // ctx.strokeStyle = "#10b981";
+    // ctx.lineWidth = 2;
+    // ctx.shadowColor = "rgba(16, 185, 129, 0.8)";
+    // ctx.shadowBlur = 8;
+    // ctx.beginPath();
+    // ctx.moveTo(p1.x, p1.y);
+    // ctx.lineTo(p2.x, p2.y);
+    // ctx.stroke();
+    // ctx.restore();
 
     // Calculate line equation: y = mx + b
     const dx = p2.x - p1.x;
@@ -129,15 +133,16 @@ export default function BarsVisualization({
 
       // X position based on note (0-127 maps to 0-100% of video width)
       const x = (bar.notePosition / 100) * videoWidth - barWidth / 2;
-      
+
       // Y position on the piano edge line
       const yOnLine = getYOnLine(x + barWidth / 2);
-      
+
       // Calculate bar position - bars fall downward from the line
       // verticalPosition 0% = at the line, 100% = further down
       const fallDistance = (bar.verticalPosition / 100) * videoHeight * 0.5; // Max fall distance
       const y = yOnLine + fallDistance;
       const height = (bar.barHeight / 600) * videoHeight;
+      console.log("drawing", bar, x, y, height);
 
       // Draw shadow/glow
       ctx.save();
@@ -162,7 +167,12 @@ export default function BarsVisualization({
       ctx.lineTo(x + barWidth - radius, y);
       ctx.quadraticCurveTo(x + barWidth, y, x + barWidth, y + radius);
       ctx.lineTo(x + barWidth, y + height - radius);
-      ctx.quadraticCurveTo(x + barWidth, y + height, x + barWidth - radius, y + height);
+      ctx.quadraticCurveTo(
+        x + barWidth,
+        y + height,
+        x + barWidth - radius,
+        y + height,
+      );
       ctx.lineTo(x + radius, y + height);
       ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
       ctx.lineTo(x, y + radius);
