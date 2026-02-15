@@ -18,6 +18,9 @@ interface EditableVideoPlayerProps {
   onVideoTimeSelect?: () => void;
   selectedMidiNoteIndex?: number | null;
   notes?: Array<{ startTick: number; durationTicks: number }>;
+  isDrawingPianoEdge?: boolean;
+  pianoEdge?: { point1: { x: number; y: number } | null; point2: { x: number; y: number } | null };
+  onPianoEdgeClick?: (x: number, y: number) => void;
 }
 
 export default function EditableVideoPlayer({
@@ -36,6 +39,9 @@ export default function EditableVideoPlayer({
   onVideoTimeSelect,
   selectedMidiNoteIndex,
   notes = [],
+  isDrawingPianoEdge = false,
+  pianoEdge = { point1: null, point2: null },
+  onPianoEdgeClick,
 }: EditableVideoPlayerProps) {
   const internalVideoRef = useRef<HTMLVideoElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -313,6 +319,14 @@ export default function EditableVideoPlayer({
           overflow: "hidden",
           border: "1px solid #1e2230",
         }}
+        onClick={(e) => {
+          if (isDrawingPianoEdge && onPianoEdgeClick) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            onPianoEdgeClick(x, y);
+          }
+        }}
       >
         <video
           ref={internalVideoRef}
@@ -334,6 +348,59 @@ export default function EditableVideoPlayer({
           playsInline
           preload="metadata"
         />
+        {/* Piano edge line indicator */}
+        {pianoEdge.point1 && pianoEdge.point2 && (
+          <svg
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              pointerEvents: "none",
+              zIndex: 10,
+            }}
+          >
+            <line
+              x1={`${pianoEdge.point1.x}%`}
+              y1={`${pianoEdge.point1.y}%`}
+              x2={`${pianoEdge.point2.x}%`}
+              y2={`${pianoEdge.point2.y}%`}
+              stroke="#10b981"
+              strokeWidth="2"
+              filter="drop-shadow(0 0 4px rgba(16, 185, 129, 0.8))"
+            />
+          </svg>
+        )}
+        {/* First point indicator */}
+        {pianoEdge.point1 && !pianoEdge.point2 && (
+          <div
+            style={{
+              position: "absolute",
+              left: `${pianoEdge.point1.x}%`,
+              top: `${pianoEdge.point1.y}%`,
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              background: "#10b981",
+              transform: "translate(-50%, -50%)",
+              pointerEvents: "none",
+              zIndex: 11,
+              boxShadow: "0 0 8px rgba(16, 185, 129, 0.8)",
+            }}
+          />
+        )}
+        {/* Drawing mode overlay */}
+        {isDrawingPianoEdge && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              cursor: "crosshair",
+              zIndex: 5,
+            }}
+          />
+        )}
       </div>
     </div>
   );
