@@ -12,6 +12,11 @@ import os
 import json
 import numpy as np
 import math
+try:
+    import mido
+except ImportError:
+    print("Error: mido library not found. Install it with: pip install mido")
+    sys.exit(1)
 
 # ============================================
 # USER CONFIGURATION - Adjust these values
@@ -23,9 +28,16 @@ VIDEO_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt13_copy.mov"
 # Path to your MP3 file
 MP3_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt1213fixed.mp3"
 
+# Path to your MIDI file
+MIDI_PATH = None  # Set to path like "/Users/simonchervenak/Documents/GitHub/midi/attempt1213fixed.mid"
+
 # MP3 start percentage (0 = start from beginning, 60 = start from 60% through the MP3)
 # This determines where in the MP3 the video will start syncing
 MP3_START_PERCENT = 55.6
+
+# MIDI start percentage (0 = start from beginning, 50 = start from 50% through the MIDI)
+# This determines where in the MIDI file the visualization should start
+MIDI_START_PERCENT = 55.6
 
 # Output file path
 OUTPUT_PATH = "/Users/simonchervenak/Documents/GitHub/midi/output_with_audio.mp4"
@@ -214,6 +226,238 @@ def calculate_key_widths_from_frame(frame, start_point, end_point):
     
     return key_widths
 
+def load_midi_notes(midi_path, midi_start_percent=0):
+    """
+    Load MIDI file and extract note events.
+    
+    Args:
+        midi_path: Path to MIDI file
+        midi_start_percent: Percentage through MIDI where visualization should start
+    
+    Returns:
+        List of note events with: note, start_time, end_time, velocity
+    """
+    if not os.path.exists(midi_path):
+        raise FileNotFoundError(f"MIDI file not found: {midi_path}")
+    
+    print(f"Loading MIDI file: {midi_path}")
+    mid = mido.MidiFile(midi_path)
+    
+    # Convert ticks to seconds with tempo handling
+    notes = []
+    active_notes = {}  # Track note-on events waiting for note-off
+    
+    ticks_per_beat = mid.ticks_per_beat
+    tempo = 500000  # Default tempo (microseconds per beat)
+    
+    # First pass: collect all tempo events and note events
+    tempo_events = []  # (tick, tempo)
+    note_events = []  # (tick, type, channel, note, velocity)
+    
+    for track in mid.tracks:
+        tick = 0
+        for msg in track:
+            tick += msg.time
+            
+            if msg.type == 'set_tempo':
+                tempo_events.append((tick, msg.tempo))
+            elif msg.type == 'note_on' and msg.velocity > 0:
+                note_events.append((tick, 'note_on', msg.channel, msg.note, msg.velocity))
+            elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
+                note_events.append((tick, 'note_off', msg.channel, msg.note, 0))
+    
+    # Sort tempo events
+    tempo_events.sort(key=lambda x: x[0])
+    
+    # Convert ticks to seconds for note events
+    def tick_to_second(tick):
+        current_tick = 0
+        current_time = 0.0
+        current_tempo = 500000
+        
+        for tempo_tick, tempo_value in tempo_events:
+            if tick <= tempo_tick:
+                # Calculate time for remaining ticks
+                ticks_in_segment = tick - current_tick
+                current_time += mido.tick2second(ticks_in_segment, ticks_per_beat, current_tempo)
+                return current_time
+            
+            # Calculate time for this tempo segment
+            ticks_in_segment = tempo_tick - current_tick
+            current_time += mido.tick2second(ticks_in_segment, ticks_per_beat, current_tempo)
+            current_tick = tempo_tick
+            current_tempo = tempo_value
+        
+        # Handle remaining ticks after last tempo event
+        ticks_in_segment = tick - current_tick
+        current_time += mido.tick2second(ticks_in_segment, ticks_per_beat, current_tempo)
+        return current_time
+    
+    # Process note events
+    for tick, event_type, channel, note, velocity in note_events:
+        time = tick_to_second(tick)
+        
+        if event_type == 'note_on':
+            key = (channel, note)
+            active_notes[key] = {
+                'start_time': time,
+                'velocity': velocity,
+                'note': note
+            }
+        elif event_type == 'note_off':
+            key = (channel, note)
+            if key in active_notes:
+                note_data = active_notes[key]
+                notes.append({
+                    'note': note_data['note'],
+                    'start_time': note_data['start_time'],
+                    'end_time': time,
+                    'velocity': note_data['velocity'],
+                    'channel': channel
+                })
+                del active_notes[key]
+    
+    # Get total duration
+    max_tick = max([tick for tick, _, _, _, _ in note_events] + [tick for tick, _ in tempo_events] + [0])
+    total_duration = tick_to_second(max_tick)
+    
+    # Sort notes by start time
+    notes.sort(key=lambda x: x['start_time'])
+    
+    # Apply MIDI start percentage offset
+    if midi_start_percent > 0:
+        start_offset = total_duration * (midi_start_percent / 100.0)
+        notes = [
+            {
+                'note': n['note'],
+                'start_time': n['start_time'] - start_offset,
+                'end_time': n['end_time'] - start_offset,
+                'velocity': n['velocity'],
+                'channel': n['channel']
+            }
+            for n in notes
+            if n['end_time'] > start_offset  # Only keep notes that haven't ended
+        ]
+    
+    print(f"Loaded {len(notes)} MIDI notes")
+    return notes, total_duration
+
+def map_note_to_position(note, key_widths):
+    """
+    Map MIDI note number (0-127) to position along the piano line.
+    Piano keys typically range from A0 (21) to C8 (108) for 88 keys.
+    
+    Args:
+        note: MIDI note number
+        key_widths: Array of key widths
+    
+    Returns:
+        Position index in key_widths array, or None if note is out of range
+    """
+    # Standard 88-key piano: A0 (21) to C8 (108)
+    PIANO_START_NOTE = 21
+    PIANO_END_NOTE = 108
+    
+    if note < PIANO_START_NOTE or note > PIANO_END_NOTE:
+        return None
+    
+    # Map note to key index (0-87 for 88 keys)
+    key_index = note - PIANO_START_NOTE
+    
+    if key_index < len(key_widths):
+        return key_index
+    
+    return None
+
+def draw_midi_bars(frame, start_point, end_point, key_widths, notes, current_time, bar_height=20):
+    """
+    Draw MIDI note bars on the frame.
+    
+    Args:
+        frame: OpenCV frame
+        start_point: [x, y] where piano starts
+        end_point: [x, y] where piano ends
+        key_widths: Array of key widths
+        notes: List of MIDI note events
+        current_time: Current video time in seconds
+        bar_height: Height of the bars in pixels
+    """
+    x1, y1 = start_point
+    x2, y2 = end_point
+    
+    # Calculate line direction and length
+    dx = x2 - x1
+    dy = y2 - y1
+    line_length = math.sqrt(dx * dx + dy * dy)
+    
+    if line_length == 0:
+        return frame
+    
+    # Normalize direction vector
+    dir_x = dx / line_length
+    dir_y = dy / line_length
+    
+    # Perpendicular vector for bar height
+    perp_x = -dir_y
+    perp_y = dir_x
+    
+    # Calculate total width from key_widths
+    total_width = sum(key_widths)
+    scale_factor = line_length / total_width if total_width > 0 else 1.0
+    
+    # Draw active notes
+    for note_event in notes:
+        note = note_event['note']
+        start_time = note_event['start_time']
+        end_time = note_event['end_time']
+        velocity = note_event['velocity']
+        
+        # Check if note is active at current time
+        if start_time <= current_time <= end_time:
+            # Map note to key position
+            key_index = map_note_to_position(note, key_widths)
+            if key_index is None:
+                continue
+            
+            # Calculate position along the line
+            cumulative_width = sum(key_widths[:key_index]) * scale_factor
+            key_width = key_widths[key_index] * scale_factor
+            
+            # Calculate bar position
+            bar_start_x = x1 + cumulative_width * dir_x
+            bar_start_y = y1 + cumulative_width * dir_y
+            bar_end_x = x1 + (cumulative_width + key_width) * dir_x
+            bar_end_y = y1 + (cumulative_width + key_width) * dir_y
+            
+            # Calculate bar center
+            bar_center_x = (bar_start_x + bar_end_x) / 2
+            bar_center_y = (bar_start_y + bar_end_y) / 2
+            
+            # Color based on velocity (0-127 -> blue to red)
+            # Map velocity to hue: 0 = blue (120), 127 = red (0)
+            hue = int(120 - (velocity / 127.0) * 120)  # 120 (blue) to 0 (red)
+            saturation = 255
+            value = 255
+            
+            # Convert HSV to BGR
+            color_hsv = np.uint8([[[hue, saturation, value]]])
+            color_bgr = cv2.cvtColor(color_hsv, cv2.COLOR_HSV2BGR)[0][0]
+            color = (int(color_bgr[0]), int(color_bgr[1]), int(color_bgr[2]))
+            
+            # Draw bar perpendicular to the line
+            bar_start_perp_x = int(bar_center_x - (bar_height / 2) * perp_x)
+            bar_start_perp_y = int(bar_center_y - (bar_height / 2) * perp_y)
+            bar_end_perp_x = int(bar_center_x + (bar_height / 2) * perp_x)
+            bar_end_perp_y = int(bar_center_y + (bar_height / 2) * perp_y)
+            
+            # Draw the bar
+            cv2.line(frame,
+                    (bar_start_perp_x, bar_start_perp_y),
+                    (bar_end_perp_x, bar_end_perp_y),
+                    color, 3, cv2.LINE_AA)
+    
+    return frame
+
 def draw_piano_keys_line(frame, start_point, end_point, key_widths, line_thickness=5):
     """
     Draw a line from start_point to end_point with alternating green/red segments
@@ -276,12 +520,14 @@ def draw_piano_keys_line(frame, start_point, end_point, key_widths, line_thickne
     
     return frame
 
-def debug_visualization_frame(video_path, output_png_path, piano_start, piano_end, key_widths, line_thickness=5, calculate_widths=False):
+def debug_visualization_frame(video_path, output_png_path, piano_start, piano_end, key_widths, line_thickness=5, calculate_widths=False, midi_notes=None, current_time=0.0):
     """
     Debug function: Read first frame, draw piano key visualization, and save as PNG.
     
     Args:
         calculate_widths: If True, calculate key widths from the frame instead of using provided
+        midi_notes: List of MIDI note events to draw
+        current_time: Current time in seconds for MIDI visualization
     """
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -309,6 +555,11 @@ def debug_visualization_frame(video_path, output_png_path, piano_start, piano_en
     # Draw piano keys line on frame
     print("Drawing piano key visualization on first frame...")
     frame = draw_piano_keys_line(frame, piano_start, piano_end, key_widths, line_thickness)
+    
+    # Draw MIDI bars if provided
+    if midi_notes is not None:
+        print(f"Drawing {len(midi_notes)} MIDI notes at time {current_time:.2f}s...")
+        frame = draw_midi_bars(frame, piano_start, piano_end, key_widths, midi_notes, current_time)
     
     # Save as PNG
     cv2.imwrite(output_png_path, frame)
@@ -403,7 +654,8 @@ def get_audio_info(audio_path):
     }
 
 def combine_video_audio(video_path, audio_path, output_path, audio_start_percent=0, 
-                        piano_start=None, piano_end=None, key_widths=None, line_thickness=5):
+                        piano_start=None, piano_end=None, key_widths=None, line_thickness=5,
+                        midi_path=None, midi_start_percent=0):
     """
     Combine a video file with an MP3 audio file using ffmpeg.
     
@@ -438,9 +690,21 @@ def combine_video_audio(video_path, audio_path, output_path, audio_start_percent
     # Debug mode: Just output first frame with visualization as PNG
     if piano_start is not None and piano_end is not None:
         debug_output_path = "../output.png"
+        
+        # Load MIDI notes if MIDI file is provided
+        midi_notes = None
+        current_time = 0.0
+        if midi_path is not None:
+            try:
+                midi_notes, _ = load_midi_notes(midi_path, midi_start_percent)
+                print(f"Loaded {len(midi_notes)} MIDI notes for visualization")
+            except Exception as e:
+                print(f"Warning: Could not load MIDI file: {e}")
+        
         # Always calculate key widths from the frame
         debug_visualization_frame(
-            video_path, debug_output_path, piano_start, piano_end, key_widths, line_thickness, calculate_widths=False
+            video_path, debug_output_path, piano_start, piano_end, key_widths, line_thickness, 
+            calculate_widths=False, midi_notes=midi_notes, current_time=current_time
         )
         print("Debug mode: Only first frame saved. Exiting.")
         return
@@ -533,7 +797,9 @@ if __name__ == "__main__":
             piano_start=PIANO_START,
             piano_end=PIANO_END,
             key_widths=KEY_WIDTHS,
-            line_thickness=LINE_THICKNESS
+            line_thickness=LINE_THICKNESS,
+            midi_path=MIDI_PATH,
+            midi_start_percent=MIDI_START_PERCENT
         )
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
