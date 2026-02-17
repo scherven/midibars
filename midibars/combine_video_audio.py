@@ -428,7 +428,6 @@ def combine_video_audio(video_path, audio_path, output_path, audio_start_percent
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    # Single ffmpeg command that takes raw frames, encodes, and combines with audio
     ffmpeg_cmd = [
         'ffmpeg',
         '-y',
@@ -451,7 +450,7 @@ def combine_video_audio(video_path, audio_path, output_path, audio_start_percent
         '-preset', 'medium',
         '-crf', '18',
         '-pix_fmt', 'yuv420p',
-        '-color_range', '2',  # Full color range (0-255) - THIS IS THE FIX
+        '-color_range', '2',  # Full color range (0-255)
         # Audio encoding
         '-c:a', 'aac',
         '-b:a', '192k',
@@ -467,7 +466,7 @@ def combine_video_audio(video_path, audio_path, output_path, audio_start_percent
     with tqdm(total=total_frames, desc="Processing frames", unit="frame") as pbar:
         while True:
             ret, frame = cap.read()
-            if not ret:
+            if not ret or frame_count > 100:
                 break
             
             video_time = frame_count / fps
