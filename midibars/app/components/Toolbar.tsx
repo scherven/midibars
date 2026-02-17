@@ -103,7 +103,7 @@ export default function Toolbar({
           }}
         >
           <Ruler size={16} />
-          {isDrawingPianoEdge ? "Click 2 points on video" : "Set Piano Edge"}
+          {isDrawingPianoEdge ? "Click 4 points on video" : "Set Piano Edge"}
         </button>
       )}
     </div>

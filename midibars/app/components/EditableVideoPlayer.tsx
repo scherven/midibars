@@ -22,6 +22,12 @@ interface EditableVideoPlayerProps {
   pianoEdge?: {
     point1: { x: number; y: number } | null;
     point2: { x: number; y: number } | null;
+    trapezoid?: {
+      topLeft: { x: number; y: number };
+      topRight: { x: number; y: number };
+      bottomRight: { x: number; y: number };
+      bottomLeft: { x: number; y: number };
+    } | null;
   };
   onPianoEdgeClick?: (x: number, y: number) => void;
   bars?: React.ReactNode;
@@ -446,8 +452,128 @@ export default function EditableVideoPlayer({
           playsInline
           preload="metadata"
         />
-        {/* Piano edge line indicator */}
-        {pianoEdge.point1 && pianoEdge.point2 && (
+        {/* Piano trapezoid indicator */}
+        {pianoEdge.trapezoid && (
+          <svg
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              pointerEvents: "none",
+              zIndex: 10,
+            }}
+          >
+            {pianoEdge.trapezoid.topLeft && pianoEdge.trapezoid.topRight && 
+             pianoEdge.trapezoid.bottomRight && pianoEdge.trapezoid.bottomLeft && 
+             pianoEdge.trapezoid.topRight.x !== 0 && pianoEdge.trapezoid.topRight.y !== 0 &&
+             pianoEdge.trapezoid.bottomRight.x !== 0 && pianoEdge.trapezoid.bottomRight.y !== 0 &&
+             pianoEdge.trapezoid.bottomLeft.x !== 0 && pianoEdge.trapezoid.bottomLeft.y !== 0 ? (
+              <polygon
+                points={`
+                  ${pianoEdge.trapezoid.topLeft.x},${pianoEdge.trapezoid.topLeft.y}
+                  ${pianoEdge.trapezoid.topRight.x},${pianoEdge.trapezoid.topRight.y}
+                  ${pianoEdge.trapezoid.bottomRight.x},${pianoEdge.trapezoid.bottomRight.y}
+                  ${pianoEdge.trapezoid.bottomLeft.x},${pianoEdge.trapezoid.bottomLeft.y}
+                `}
+                fill="rgba(16, 185, 129, 0.1)"
+                stroke="#10b981"
+                strokeWidth="0.2"
+                filter="drop-shadow(0 0 0.4px rgba(16, 185, 129, 0.8))"
+              />
+            ) : (
+              <>
+                {pianoEdge.trapezoid.topLeft && (
+                  <circle
+                    cx={pianoEdge.trapezoid.topLeft.x}
+                    cy={pianoEdge.trapezoid.topLeft.y}
+                    r="0.5"
+                    fill="#10b981"
+                    filter="drop-shadow(0 0 0.2px rgba(16, 185, 129, 0.8))"
+                  />
+                )}
+                {pianoEdge.trapezoid.topRight && pianoEdge.trapezoid.topRight.x !== 0 && pianoEdge.trapezoid.topRight.y !== 0 && (
+                  <>
+                    <line
+                      x1={pianoEdge.trapezoid.topLeft.x}
+                      y1={pianoEdge.trapezoid.topLeft.y}
+                      x2={pianoEdge.trapezoid.topRight.x}
+                      y2={pianoEdge.trapezoid.topRight.y}
+                      stroke="#10b981"
+                      strokeWidth="0.2"
+                      strokeDasharray="0.4 0.4"
+                      filter="drop-shadow(0 0 0.4px rgba(16, 185, 129, 0.8))"
+                    />
+                    <circle
+                      cx={pianoEdge.trapezoid.topRight.x}
+                      cy={pianoEdge.trapezoid.topRight.y}
+                      r="0.5"
+                      fill="#10b981"
+                      filter="drop-shadow(0 0 0.2px rgba(16, 185, 129, 0.8))"
+                    />
+                  </>
+                )}
+                {pianoEdge.trapezoid.bottomRight && pianoEdge.trapezoid.bottomRight.x !== 0 && pianoEdge.trapezoid.bottomRight.y !== 0 && (
+                  <>
+                    <line
+                      x1={pianoEdge.trapezoid.topRight.x}
+                      y1={pianoEdge.trapezoid.topRight.y}
+                      x2={pianoEdge.trapezoid.bottomRight.x}
+                      y2={pianoEdge.trapezoid.bottomRight.y}
+                      stroke="#10b981"
+                      strokeWidth="0.2"
+                      strokeDasharray="0.4 0.4"
+                      filter="drop-shadow(0 0 0.4px rgba(16, 185, 129, 0.8))"
+                    />
+                    <circle
+                      cx={pianoEdge.trapezoid.bottomRight.x}
+                      cy={pianoEdge.trapezoid.bottomRight.y}
+                      r="0.5"
+                      fill="#10b981"
+                      filter="drop-shadow(0 0 0.2px rgba(16, 185, 129, 0.8))"
+                    />
+                  </>
+                )}
+                {pianoEdge.trapezoid.bottomLeft && pianoEdge.trapezoid.bottomLeft.x !== 0 && pianoEdge.trapezoid.bottomLeft.y !== 0 && (
+                  <>
+                    <line
+                      x1={pianoEdge.trapezoid.bottomRight.x}
+                      y1={pianoEdge.trapezoid.bottomRight.y}
+                      x2={pianoEdge.trapezoid.bottomLeft.x}
+                      y2={pianoEdge.trapezoid.bottomLeft.y}
+                      stroke="#10b981"
+                      strokeWidth="0.2"
+                      strokeDasharray="0.4 0.4"
+                      filter="drop-shadow(0 0 0.4px rgba(16, 185, 129, 0.8))"
+                    />
+                    <line
+                      x1={pianoEdge.trapezoid.bottomLeft.x}
+                      y1={pianoEdge.trapezoid.bottomLeft.y}
+                      x2={pianoEdge.trapezoid.topLeft.x}
+                      y2={pianoEdge.trapezoid.topLeft.y}
+                      stroke="#10b981"
+                      strokeWidth="0.2"
+                      strokeDasharray="0.4 0.4"
+                      filter="drop-shadow(0 0 0.4px rgba(16, 185, 129, 0.8))"
+                    />
+                    <circle
+                      cx={pianoEdge.trapezoid.bottomLeft.x}
+                      cy={pianoEdge.trapezoid.bottomLeft.y}
+                      r="0.5"
+                      fill="#10b981"
+                      filter="drop-shadow(0 0 0.2px rgba(16, 185, 129, 0.8))"
+                    />
+                  </>
+                )}
+              </>
+            )}
+          </svg>
+        )}
+        {/* Piano edge line indicator (backward compatibility) */}
+        {!pianoEdge.trapezoid && pianoEdge.point1 && pianoEdge.point2 && (
           <svg
             style={{
               position: "absolute",
@@ -470,8 +596,8 @@ export default function EditableVideoPlayer({
             />
           </svg>
         )}
-        {/* First point indicator */}
-        {pianoEdge.point1 && !pianoEdge.point2 && (
+        {/* First point indicator (backward compatibility) */}
+        {!pianoEdge.trapezoid && pianoEdge.point1 && !pianoEdge.point2 && (
           <div
             style={{
               position: "absolute",

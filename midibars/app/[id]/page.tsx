@@ -23,9 +23,16 @@ export default function MainPage() {
   const [pianoEdge, setPianoEdge] = useState<{
     point1: { x: number; y: number } | null;
     point2: { x: number; y: number } | null;
+    trapezoid?: {
+      topLeft: { x: number; y: number };
+      topRight: { x: number; y: number };
+      bottomRight: { x: number; y: number };
+      bottomLeft: { x: number; y: number };
+    } | null;
   }>({
     point1: null,
     point2: null,
+    trapezoid: null,
   });
   const [isDrawingPianoEdge, setIsDrawingPianoEdge] = useState(false);
 
@@ -176,9 +183,17 @@ export default function MainPage() {
           onSidebarToggle={() => setSidebarOpen(true)}
           onModeChange={setMode}
           isDrawingPianoEdge={isDrawingPianoEdge}
-          onTogglePianoEdgeDrawing={() =>
-            setIsDrawingPianoEdge(!isDrawingPianoEdge)
-          }
+          onTogglePianoEdgeDrawing={() => {
+            if (!isDrawingPianoEdge) {
+              // Clear piano edge data when starting to draw
+              setPianoEdge({
+                point1: null,
+                point2: null,
+                trapezoid: null,
+              });
+            }
+            setIsDrawingPianoEdge(!isDrawingPianoEdge);
+          }}
         />
 
         {/* Video Player Area */}
@@ -236,8 +251,46 @@ export default function MainPage() {
                   isDrawingPianoEdge={isDrawingPianoEdge}
                   pianoEdge={pianoEdge}
                   onPianoEdgeClick={(x, y) => {
-                    if (!pianoEdge.point1) {
-                      setPianoEdge({ point1: { x, y }, point2: null });
+                    // Draw trapezoid (4 points: topLeft, topRight, bottomRight, bottomLeft)
+                    if (!pianoEdge.trapezoid) {
+                      setPianoEdge({
+                        ...pianoEdge,
+                        trapezoid: {
+                          topLeft: { x, y },
+                          topRight: { x: 0, y: 0 },
+                          bottomRight: { x: 0, y: 0 },
+                          bottomLeft: { x: 0, y: 0 },
+                        },
+                      });
+                    } else if (pianoEdge.trapezoid.topRight.x === 0 && pianoEdge.trapezoid.topRight.y === 0) {
+                      setPianoEdge({
+                        ...pianoEdge,
+                        trapezoid: {
+                          ...pianoEdge.trapezoid,
+                          topRight: { x, y },
+                        },
+                      });
+                    } else if (pianoEdge.trapezoid.bottomRight.x === 0 && pianoEdge.trapezoid.bottomRight.y === 0) {
+                      setPianoEdge({
+                        ...pianoEdge,
+                        trapezoid: {
+                          ...pianoEdge.trapezoid,
+                          bottomRight: { x, y },
+                        },
+                      });
+                    } else if (pianoEdge.trapezoid.bottomLeft.x === 0 && pianoEdge.trapezoid.bottomLeft.y === 0) {
+                      setPianoEdge({
+                        ...pianoEdge,
+                        trapezoid: {
+                          ...pianoEdge.trapezoid,
+                          bottomLeft: { x, y },
+                        },
+                      });
+                      setIsDrawingPianoEdge(false);
+                    }
+                    // Fallback to old 2-point system for backward compatibility
+                    else if (!pianoEdge.point1) {
+                      setPianoEdge({ ...pianoEdge, point1: { x, y }, point2: null });
                     } else if (!pianoEdge.point2) {
                       setPianoEdge({ ...pianoEdge, point2: { x, y } });
                       setIsDrawingPianoEdge(false);
@@ -250,8 +303,6 @@ export default function MainPage() {
                     alignmentData && (
                       <BarsVisualization
                         noteBars={noteBars}
-                        videoTime={videoTime}
-                        currentMidiTime={currentMidiTime}
                         pianoEdge={pianoEdge}
                         videoRef={videoRef}
                       />

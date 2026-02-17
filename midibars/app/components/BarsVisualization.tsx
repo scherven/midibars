@@ -1,4 +1,11 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  getPerspectiveTransform,
+  inverseTransformPoint,
+  calculateWarpedWidth,
+  calculateWarpedHeight,
+  type Trapezoid,
+} from "@/app/utils/perspectiveTransform";
 
 const BAR_WIDTH = 10;
 const BAR_RADIUS = 6;
@@ -71,6 +78,7 @@ interface BarsVisualizationProps {
   pianoEdge: {
     point1: { x: number; y: number } | null;
     point2: { x: number; y: number } | null;
+    trapezoid?: Trapezoid | null;
   };
   videoRef: React.RefObject<any>;
 }
@@ -82,10 +90,20 @@ export default function BarsVisualization({
 }: BarsVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Calculate perspective transform if trapezoid is defined
+  // This needs to be recalculated when video dimensions change, so we'll do it in draw()
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const videoElement = videoRef.current;
-    if (!canvas || !videoElement || !pianoEdge.point1 || !pianoEdge.point2)
+    
+    // Check if we have either trapezoid or 2-point edge
+    const hasTrapezoid = pianoEdge.trapezoid && 
+      pianoEdge.trapezoid.topRight.x !== 0 && pianoEdge.trapezoid.topRight.y !== 0 &&
+      pianoEdge.trapezoid.bottomRight.x !== 0 && pianoEdge.trapezoid.bottomRight.y !== 0 &&
+      pianoEdge.trapezoid.bottomLeft.x !== 0 && pianoEdge.trapezoid.bottomLeft.y !== 0;
+    
+    if (!canvas || !videoElement || (!hasTrapezoid && (!pianoEdge.point1 || !pianoEdge.point2)))
       return;
 
     const ctx = canvas.getContext("2d");
@@ -117,28 +135,108 @@ export default function BarsVisualization({
     // Clear canvas
     ctx.clearRect(0, 0, videoWidth, videoHeight);
 
-    // Calculate piano edge line in pixels
-    const p1 = {
-      x: (pianoEdge.point1.x / 100) * videoWidth,
-      y: (pianoEdge.point1.y / 100) * videoHeight,
-    };
-    const p2 = {
-      x: (pianoEdge.point2.x / 100) * videoWidth,
-      y: (pianoEdge.point2.y / 100) * videoHeight,
-    };
+    let p1: { x: number; y: number };
+    let p2: { x: number; y: number };
+    let dx: number;
+    let dy: number;
+    let lineLength: number;
+    let dirX: number;
+    let dirY: number;
+    let perpX: number;
+    let perpY: number;
+    let perspectiveTransform: {
+      transform: number[];
+      warpedWidth: number;
+      warpedHeight: number;
+    } | null = null;
 
-    // Calculate line direction and perpendicular vector
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    const lineLength = Math.sqrt(dx * dx + dy * dy);
+    if (hasTrapezoid) {
+      const trapezoid = pianoEdge.trapezoid!;
+      
+      // Convert percentage coordinates to pixel coordinates for transformation
+      const trapezoidPixels: Trapezoid = {
+        topLeft: {
+          x: (trapezoid.topLeft.x / 100) * videoWidth,
+          y: (trapezoid.topLeft.y / 100) * videoHeight,
+        },
+        topRight: {
+          x: (trapezoid.topRight.x / 100) * videoWidth,
+          y: (trapezoid.topRight.y / 100) * videoHeight,
+        },
+        bottomRight: {
+          x: (trapezoid.bottomRight.x / 100) * videoWidth,
+          y: (trapezoid.bottomRight.y / 100) * videoHeight,
+        },
+        bottomLeft: {
+          x: (trapezoid.bottomLeft.x / 100) * videoWidth,
+          y: (trapezoid.bottomLeft.y / 100) * videoHeight,
+        },
+      };
 
-    // Normalized direction vector along the line
-    const dirX = lineLength > 0 ? dx / lineLength : 0;
-    const dirY = lineLength > 0 ? dy / lineLength : 0;
+      // Calculate warped dimensions (these return percentages, convert to pixels)
+      const warpedWidthPercent = calculateWarpedWidth(trapezoid);
+      const warpedHeightPercent = calculateWarpedHeight(trapezoid);
+      const targetWidth = (warpedWidthPercent / 100) * videoWidth;
+      const targetHeight = (warpedHeightPercent / 100) * videoHeight;
 
-    // Perpendicular direction (bars extend in this direction)
-    const perpX = -dirY;
-    const perpY = dirX;
+      try {
+        const transform = getPerspectiveTransform(trapezoidPixels, targetWidth, targetHeight);
+        perspectiveTransform = {
+          transform,
+          warpedWidth: targetWidth,
+          warpedHeight: targetHeight,
+        };
+      } catch (e) {
+        console.error("Failed to calculate perspective transform:", e);
+        perspectiveTransform = null;
+      }
+    }
+
+    if (hasTrapezoid && perspectiveTransform) {
+      // Use trapezoid: map note position to warped rectangle, then transform back
+      // The top edge of the warped rectangle represents the piano edge
+      const trapezoid = pianoEdge.trapezoid!;
+      p1 = {
+        x: (trapezoid.topLeft.x / 100) * videoWidth,
+        y: (trapezoid.topLeft.y / 100) * videoHeight,
+      };
+      p2 = {
+        x: (trapezoid.topRight.x / 100) * videoWidth,
+        y: (trapezoid.topRight.y / 100) * videoHeight,
+      };
+      
+      // For trapezoid, we'll calculate the direction along the top edge
+      dx = p2.x - p1.x;
+      dy = p2.y - p1.y;
+      lineLength = Math.sqrt(dx * dx + dy * dy);
+      dirX = lineLength > 0 ? dx / lineLength : 0;
+      dirY = lineLength > 0 ? dy / lineLength : 0;
+      perpX = -dirY;
+      perpY = dirX;
+    } else {
+      // Fallback to 2-point system
+      p1 = {
+        x: (pianoEdge.point1!.x / 100) * videoWidth,
+        y: (pianoEdge.point1!.y / 100) * videoHeight,
+      };
+      p2 = {
+        x: (pianoEdge.point2!.x / 100) * videoWidth,
+        y: (pianoEdge.point2!.y / 100) * videoHeight,
+      };
+
+      // Calculate line direction and perpendicular vector
+      dx = p2.x - p1.x;
+      dy = p2.y - p1.y;
+      lineLength = Math.sqrt(dx * dx + dy * dy);
+
+      // Normalized direction vector along the line
+      dirX = lineLength > 0 ? dx / lineLength : 0;
+      dirY = lineLength > 0 ? dy / lineLength : 0;
+
+      // Perpendicular direction (bars extend in this direction)
+      perpX = -dirY;
+      perpY = dirX;
+    }
 
     noteBars.forEach((bar) => {
       // Calculate bar color based on channel and velocity
@@ -149,9 +247,30 @@ export default function BarsVisualization({
       const opacity = Math.max(0.8, bar.opacity);
 
       // Calculate touch point on the line
-      const noteProgress = bar.notePosition / 100;
-      const xOnLine = p1.x + noteProgress * dx;
-      const yOnLine = p1.y + noteProgress * dy;
+      let xOnLine: number;
+      let yOnLine: number;
+
+      if (hasTrapezoid && perspectiveTransform) {
+        // Map note position (0-100%) to position along the top edge of the warped rectangle
+        // In the warped rectangle, the note position maps to a point on the top edge
+        const noteProgress = bar.notePosition / 100;
+        const warpedX = noteProgress * perspectiveTransform.warpedWidth;
+        const warpedY = 0; // Top edge of the warped rectangle
+
+        // Transform back to original trapezoid coordinates
+        const originalPoint = inverseTransformPoint(
+          { x: warpedX, y: warpedY },
+          perspectiveTransform.transform,
+        );
+
+        xOnLine = originalPoint.x;
+        yOnLine = originalPoint.y;
+      } else {
+        // Use simple linear interpolation for 2-point system
+        const noteProgress = bar.notePosition / 100;
+        xOnLine = p1.x + noteProgress * dx;
+        yOnLine = p1.y + noteProgress * dy;
+      }
 
       // Calculate offset from line (for verticalPosition)
       const fallDistance =
@@ -233,13 +352,23 @@ export default function BarsVisualization({
   }, [noteBars, pianoEdge, videoRef]);
 
   useEffect(() => {
-    if (!pianoEdge.point1 || !pianoEdge.point2) return;
+    const hasTrapezoid = pianoEdge.trapezoid && 
+      pianoEdge.trapezoid.topRight.x !== 0 && pianoEdge.trapezoid.topRight.y !== 0 &&
+      pianoEdge.trapezoid.bottomRight.x !== 0 && pianoEdge.trapezoid.bottomRight.y !== 0 &&
+      pianoEdge.trapezoid.bottomLeft.x !== 0 && pianoEdge.trapezoid.bottomLeft.y !== 0;
+    
+    if (!hasTrapezoid && (!pianoEdge.point1 || !pianoEdge.point2)) return;
     draw();
   }, [draw, pianoEdge]);
 
   // Handle resize and animation updates
   useEffect(() => {
-    if (!pianoEdge.point1 || !pianoEdge.point2) return;
+    const hasTrapezoid = pianoEdge.trapezoid && 
+      pianoEdge.trapezoid.topRight.x !== 0 && pianoEdge.trapezoid.topRight.y !== 0 &&
+      pianoEdge.trapezoid.bottomRight.x !== 0 && pianoEdge.trapezoid.bottomRight.y !== 0 &&
+      pianoEdge.trapezoid.bottomLeft.x !== 0 && pianoEdge.trapezoid.bottomLeft.y !== 0;
+    
+    if (!hasTrapezoid && (!pianoEdge.point1 || !pianoEdge.point2)) return;
 
     const videoElement = videoRef.current;
     if (!videoElement) return;
@@ -255,7 +384,23 @@ export default function BarsVisualization({
     };
   }, [draw, pianoEdge, videoRef]);
 
-  if (!pianoEdge.point1 || !pianoEdge.point2) {
+  const hasTrapezoid = pianoEdge.trapezoid && 
+    pianoEdge.trapezoid.topRight.x !== 0 && pianoEdge.trapezoid.topRight.y !== 0 &&
+    pianoEdge.trapezoid.bottomRight.x !== 0 && pianoEdge.trapezoid.bottomRight.y !== 0 &&
+    pianoEdge.trapezoid.bottomLeft.x !== 0 && pianoEdge.trapezoid.bottomLeft.y !== 0;
+  
+  const hasTwoPoints = pianoEdge.point1 && pianoEdge.point2;
+
+  if (!hasTrapezoid && !hasTwoPoints) {
+    const trapezoidInProgress = pianoEdge.trapezoid && pianoEdge.trapezoid.topLeft;
+    const pointsSet = trapezoidInProgress && pianoEdge.trapezoid
+      ? (pianoEdge.trapezoid.topRight.x !== 0 && pianoEdge.trapezoid.topRight.y !== 0
+          ? (pianoEdge.trapezoid.bottomRight.x !== 0 && pianoEdge.trapezoid.bottomRight.y !== 0
+              ? 3
+              : 2)
+          : 1)
+      : 0;
+
     return (
       <div
         style={{
@@ -265,9 +410,13 @@ export default function BarsVisualization({
           fontSize: "14px",
         }}
       >
-        {!pianoEdge.point1
-          ? 'Click "Set Piano Edge" and then click two points on the video to set the piano edge line.'
-          : "Click a second point on the video to complete the piano edge line."}
+        {pointsSet === 0
+          ? 'Click "Set Piano Edge" and then click 4 points on the video to draw a trapezoid around the piano.'
+          : pointsSet === 1
+          ? "Click the second point (top right corner)."
+          : pointsSet === 2
+          ? "Click the third point (bottom right corner)."
+          : "Click the fourth point (bottom left corner) to complete the trapezoid."}
       </div>
     );
   }
