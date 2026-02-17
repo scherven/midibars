@@ -10,3 +10,4 @@ output_with_piano_roll.mp4
 attempt1213fixed.mp3
 midibars/.env
 *.mp4
+*.pyc

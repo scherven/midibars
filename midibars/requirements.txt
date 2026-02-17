@@ -1,3 +1,4 @@
 opencv-python>=4.8.0
 mido>=1.2.10
+tqdm>=4.65.0
 
