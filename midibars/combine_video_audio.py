@@ -428,100 +428,67 @@ def combine_video_audio(video_path, audio_path, output_path, audio_start_percent
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    # Write processed video to temp file using ffmpeg for better quality
-    temp_video_path = output_path.replace('.mp4', '_temp_processed.mp4')
-    
-    # Use ffmpeg to write frames with lossless intermediate codec to preserve quality
-    # Using ffv1 (lossless, more efficient than huffyuv) for intermediate file
-    ffmpeg_write_cmd = [
+    # Single ffmpeg command that takes raw frames, encodes, and combines with audio
+    ffmpeg_cmd = [
         'ffmpeg',
         '-y',
+        # Video input (raw frames from stdin)
         '-f', 'rawvideo',
         '-vcodec', 'rawvideo',
         '-s', f'{frame_width}x{frame_height}',
         '-pix_fmt', 'bgr24',
         '-r', str(fps),
-        '-i', '-',
-        '-an',
-        '-vcodec', 'libx264rgb',  # RGB variant
-        '-preset', 'ultrafast',  # Faster encoding since you don't care about size
-        '-crf', '0',  # 0 = lossless
-        temp_video_path
+        '-i', '-',  # Read video from stdin
+        # Audio input
+        '-ss', str(audio_start_time),
+        '-i', audio_path,
+        '-t', str(video_duration),
+        # Map streams
+        '-map', '0:v:0',  # Video from stdin
+        '-map', '1:a:0',  # Audio from file
+        # Video encoding
+        '-c:v', 'libx264',
+        '-preset', 'medium',
+        '-crf', '18',
+        '-pix_fmt', 'yuv420p',
+        '-color_range', '2',  # Full color range (0-255) - THIS IS THE FIX
+        # Audio encoding
+        '-c:a', 'aac',
+        '-b:a', '192k',
+        '-shortest',
+        output_path
     ]
-    
-    ffmpeg_process = subprocess.Popen(ffmpeg_write_cmd, stdin=subprocess.PIPE)
-    
+
+    ffmpeg_process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
+
     print(f"Processing {total_frames} frames...")
     frame_count = 0
-    
+
     with tqdm(total=total_frames, desc="Processing frames", unit="frame") as pbar:
         while True:
             ret, frame = cap.read()
-            if not ret or frame_count > 50 :
+            if not ret:
                 break
             
             video_time = frame_count / fps
             
             if has_visualization:
-                # Black out everything to the right of the piano line
                 frame = blackout_right_of_line(frame, piano_start, piano_end)
-                
-                # Draw MIDI bars
                 if midi_notes is not None:
                     frame = draw_midi_bars(frame, piano_start, piano_end, key_widths, midi_notes, video_time)
             
-            # Write frame to ffmpeg
             ffmpeg_process.stdin.write(frame.tobytes())
             frame_count += 1
             pbar.update(1)
-    
+
     cap.release()
     ffmpeg_process.stdin.close()
     ffmpeg_process.wait()
-    
-    if ffmpeg_process.returncode != 0:
-        raise RuntimeError(f"ffmpeg video encoding failed with return code {ffmpeg_process.returncode}")
-    
-    print(f"Processed {frame_count} frames. Combining with audio...")
-    
-    # Combine processed video with audio using high-quality encoding
-    # Re-encode from lossless intermediate with high quality settings
-    ffmpeg_cmd = [
-        'ffmpeg',
-        '-i', temp_video_path,
-        '-ss', str(audio_start_time),
-        '-i', audio_path,
-        '-t', str(video_duration),
-        '-map', '0:v:0',
-        '-map', '1:a:0',
-        '-c:v', 'libx264',
-        '-preset', 'slow',  # Slower preset for better quality
-        '-crf', '15',  # Very high quality (lower = better)
-        '-pix_fmt', 'yuv420p',
-        '-color_primaries', 'bt709',  # Preserve color space
-        '-color_trc', 'bt709',
-        '-colorspace', 'bt709',
-        '-c:a', 'aac',
-        '-b:a', '192k',
-        '-shortest',
-        '-y',
-        output_path
-    ]
-    
-    print(f"Running ffmpeg to combine video and audio...")
-    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-    
-    if result.returncode != 0:
-        print(f"ffmpeg stderr: {result.stderr}")
-        raise RuntimeError(f"ffmpeg failed with return code {result.returncode}")
-    
-    # Clean up temp file
-    if os.path.exists(temp_video_path):
-        os.unlink(temp_video_path)
-        print("Cleaned up temporary file")
-    
-    print(f"Done! Output saved to: {output_path}")
 
+    if ffmpeg_process.returncode != 0:
+        raise RuntimeError(f"ffmpeg encoding failed with return code {ffmpeg_process.returncode}")
+
+    print(f"Done! Output saved to: {output_path}")
 if __name__ == "__main__":
     # Use command line arguments if provided, otherwise use configuration variables
     if len(sys.argv) >= 3:
