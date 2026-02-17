@@ -2,36 +2,96 @@
 """
 Script to combine a video file with an MP3 audio file.
 The video and audio are aligned based on a sync offset percentage.
+Uses OpenCV for video reading and ffmpeg for audio processing.
 """
 
-from moviepy.editor import VideoFileClip, AudioFileClip
+import cv2
+import subprocess
 import sys
 import os
+import json
 
 # ============================================
 # USER CONFIGURATION - Adjust these values
 # ============================================
 
 # Path to your video file
-VIDEO_PATH = "attempt13 copy.mov"
+VIDEO_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt13_copy.mov"
 
 # Path to your MP3 file
-MP3_PATH = "attempt1213fixed.mp3"
+MP3_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt1213fixed.mp3"
 
 # MP3 start percentage (0 = start from beginning, 60 = start from 60% through the MP3)
 # This determines where in the MP3 the video will start syncing
-MP3_START_PERCENT = 55.9
+MP3_START_PERCENT = 55.6
 
 # Output file path
-OUTPUT_PATH = "output_with_audio.mp4"
+OUTPUT_PATH = "/Users/simonchervenak/Documents/GitHub/midi/output_with_audio.mp4"
 
 # ============================================
 # Script execution
 # ============================================
 
+def get_video_info(video_path):
+    """Get video information using OpenCV."""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video file: {video_path}")
+    
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    duration = frame_count / fps if fps > 0 else 0
+    
+    cap.release()
+    return {
+        'fps': fps,
+        'width': width,
+        'height': height,
+        'frame_count': frame_count,
+        'duration': duration
+    }
+
+def get_audio_info(audio_path):
+    """Get audio information using ffprobe."""
+    cmd = [
+        'ffprobe',
+        '-v', 'quiet',
+        '-print_format', 'json',
+        '-show_format',
+        '-show_streams',
+        audio_path
+    ]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffprobe failed: {result.stderr}")
+    
+    info = json.loads(result.stdout)
+    
+    # Find audio stream
+    audio_stream = None
+    for stream in info.get('streams', []):
+        if stream.get('codec_type') == 'audio':
+            audio_stream = stream
+            break
+    
+    if not audio_stream:
+        raise RuntimeError("No audio stream found in file")
+    
+    duration = float(info.get('format', {}).get('duration', 0))
+    
+    return {
+        'duration': duration,
+        'codec': audio_stream.get('codec_name'),
+        'sample_rate': audio_stream.get('sample_rate'),
+        'channels': audio_stream.get('channels')
+    }
+
 def combine_video_audio(video_path, audio_path, output_path, audio_start_percent=0):
     """
-    Combine a video file with an MP3 audio file.
+    Combine a video file with an MP3 audio file using ffmpeg.
     
     Args:
         video_path: Path to the video file
@@ -45,59 +105,65 @@ def combine_video_audio(video_path, audio_path, output_path, audio_start_percent
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
     
-    print(f"Loading video: {video_path}")
-    video = VideoFileClip(video_path)
+    print(f"Getting video information: {video_path}")
+    video_info = get_video_info(video_path)
+    video_duration = video_info['duration']
     
-    print(f"Loading audio: {audio_path}")
-    audio = AudioFileClip(audio_path)
-    
-    # Get durations
-    video_duration = video.duration
-    audio_duration = audio.duration
+    print(f"Getting audio information: {audio_path}")
+    audio_info = get_audio_info(audio_path)
+    audio_duration = audio_info['duration']
     
     print(f"Video duration: {video_duration:.2f} seconds")
     print(f"Audio duration: {audio_duration:.2f} seconds")
+    print(f"Video: {video_info['width']}x{video_info['height']} @ {video_info['fps']:.2f} fps")
     
     # Calculate where in the audio to start based on percentage
     audio_start_time = audio_duration * (audio_start_percent / 100.0)
     
     print(f"Starting audio at {audio_start_percent}% through MP3 ({audio_start_time:.2f} seconds)")
     
-    # Extract audio from the calculated start point
-    if audio_start_time > 0:
-        audio = audio.subclip(audio_start_time)
-        remaining_audio_duration = audio.duration
-        print(f"Remaining audio duration after start point: {remaining_audio_duration:.2f} seconds")
+    # Calculate how much audio we need
+    remaining_audio_duration = audio_duration - audio_start_time
     
-    # Align audio with video
-    # If remaining audio is longer than video, trim it to match video duration
-    # If remaining audio is shorter, it will end before video ends
-    remaining_audio_duration = audio.duration
-    if remaining_audio_duration > video_duration:
-        print(f"Trimming audio to match video duration ({video_duration:.2f}s)")
-        audio = audio.subclip(0, video_duration)
-    elif remaining_audio_duration < video_duration:
+    if remaining_audio_duration < video_duration:
         print(f"Warning: Remaining audio ({remaining_audio_duration:.2f}s) is shorter than video ({video_duration:.2f}s)")
         print("Audio will end before video. Consider adjusting the start percentage or using a longer audio file.")
+        # Trim video to match available audio
+        video_duration = remaining_audio_duration
+        print(f"Trimming video to match available audio: {video_duration:.2f}s")
     
-    # Set the audio to the video
-    print("Combining video and audio...")
-    final_video = video.set_audio(audio)
+    # Build ffmpeg command to combine video and audio
+    # -ss: start time for audio (skip to the percentage point)
+    # -t: duration (use video duration)
+    # -map: map video stream and audio stream
+    # -c:v copy: copy video codec (no re-encoding for speed)
+    # -c:a aac: encode audio as AAC
+    # -shortest: finish encoding when the shortest input stream ends
     
-    # Write the output file
-    print(f"Writing output to: {output_path}")
-    final_video.write_videofile(
-        output_path,
-        codec='libx264',
-        audio_codec='aac',
-        temp_audiofile='temp-audio.m4a',
-        remove_temp=True
-    )
+    print("Combining video and audio with ffmpeg...")
     
-    # Clean up
-    video.close()
-    audio.close()
-    final_video.close()
+    ffmpeg_cmd = [
+        'ffmpeg',
+        '-i', video_path,  # Input video
+        '-ss', str(audio_start_time),  # Start audio at this time
+        '-i', audio_path,  # Input audio
+        '-t', str(video_duration),  # Duration to process
+        '-map', '0:v:0',  # Map video stream from first input
+        '-map', '1:a:0',  # Map audio stream from second input
+        '-c:v', 'copy',  # Copy video codec (no re-encoding)
+        '-c:a', 'aac',  # Encode audio as AAC
+        '-b:a', '192k',  # Audio bitrate
+        '-shortest',  # Finish when shortest stream ends
+        '-y',  # Overwrite output file
+        output_path
+    ]
+    
+    print(f"Running: {' '.join(ffmpeg_cmd)}")
+    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        print(f"ffmpeg stderr: {result.stderr}")
+        raise RuntimeError(f"ffmpeg failed with return code {result.returncode}")
     
     print(f"Done! Output saved to: {output_path}")
 
@@ -118,5 +184,6 @@ if __name__ == "__main__":
         combine_video_audio(video_path, audio_path, output_path, start_percent)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
-
