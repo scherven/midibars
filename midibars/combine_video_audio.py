@@ -27,18 +27,18 @@ from frame_effects import (
 VIDEO_PATH = "/Users/simonchervenak/Documents/GitHub/midi/IMG_2131.mov"
 
 # Path to your MP3 file
-MP3_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt1213fixed.mp3"
+MP3_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt13_fixed.mp3"
 
 # Path to your MIDI file
 MIDI_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt1213fixed.mid"
 
 # MP3 start percentage (0 = start from beginning, 60 = start from 60% through the MP3)
 # This determines where in the MP3 the video will start syncing
-MP3_START_PERCENT = 55.6
+MP3_START_PERCENT = 55.69
 
 # MIDI start percentage (0 = start from beginning, 50 = start from 50% through the MIDI)
 # This determines where in the MIDI file the visualization should start
-MIDI_START_PERCENT = 56.15
+MIDI_START_PERCENT = 56.18
 
 # Output file path
 OUTPUT_PATH = "/Users/simonchervenak/Documents/GitHub/midi/output_with_audio.mp4"
@@ -497,6 +497,9 @@ def combine_video_audio(video_path, audio_path, output_path, audio_start_percent
     with tqdm(total=total_frames, desc="Processing frames", unit="frame") as pbar:
         while True:
             ret, frame = cap.read()
+            # if frame_count < 100: 
+                # frame_count += 1
+                # continue
             if not ret:# or frame_count > 1000:
                 break
 

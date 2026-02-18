@@ -71,9 +71,9 @@ def apply_glow_effect(frame, mask, glow_color_bgr, intensity=None, blur_radius=N
     return result
 
 
-def draw_rounded_polygon(img, pts, radius=None, color=(0, 0, 255), mask=None):
+def draw_rounded_polygon(img, pts, radius=None, color=(0, 0, 255), mask=None, round_bottom_corners=True):
     """
-    Draw a rounded rectangle polygon.
+    Draw a rounded rectangle polygon with selective corner rounding.
     
     Args:
         img: Image to draw on
@@ -81,6 +81,7 @@ def draw_rounded_polygon(img, pts, radius=None, color=(0, 0, 255), mask=None):
         radius: Corner radius in pixels
         color: BGR color tuple
         mask: Optional mask to draw on (for glow effects)
+        round_bottom_corners: If False, only round top corners (for bars touching the line)
     """
     if radius is None:
         radius = BAR_CORNER_RADIUS
@@ -102,6 +103,43 @@ def draw_rounded_polygon(img, pts, radius=None, color=(0, 0, 255), mask=None):
             cv2.fillPoly(mask, [pts], 255)
         cv2.fillPoly(img, [pts], color)
         return
+    
+    # If not rounding bottom corners, draw sharp bottom rectangle first (height 5)
+    if not round_bottom_corners:
+        bottom_left = pts[0]
+        bottom_right = pts[1]
+        top_left = pts[3]
+        top_right = pts[2]
+        
+        # Calculate direction from bottom to top
+        bottom_to_top_left = top_left - bottom_left
+        bottom_to_top_right = top_right - bottom_right
+        
+        # Calculate points 5 pixels up from bottom
+        bottom_height = 5
+        if np.linalg.norm(bottom_to_top_left) > 0:
+            side_dir_left = bottom_to_top_left / np.linalg.norm(bottom_to_top_left)
+            bottom_top_left = (bottom_left + side_dir_left * bottom_height).astype(int)
+        else:
+            bottom_top_left = bottom_left.astype(int)
+            
+        if np.linalg.norm(bottom_to_top_right) > 0:
+            side_dir_right = bottom_to_top_right / np.linalg.norm(bottom_to_top_right)
+            bottom_top_right = (bottom_right + side_dir_right * bottom_height).astype(int)
+        else:
+            bottom_top_right = bottom_right.astype(int)
+        
+        # Draw sharp bottom rectangle
+        bottom_pts = np.array([
+            bottom_left.astype(int),
+            bottom_right.astype(int),
+            bottom_top_right,
+            bottom_top_left
+        ], np.int32)
+        
+        if mask is not None:
+            cv2.fillPoly(mask, [bottom_pts], 255)
+        cv2.fillPoly(img, [bottom_pts], color)
     
     # Create a mask for the rounded rectangle
     rounded_mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
@@ -297,8 +335,15 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0,
             [top_left_x, top_left_y]
         ], np.int32)
         
+        # Determine if bar is touching the line (stage 2 - past the line)
+        # When perpendicular_offset is 0, the bar is touching the line
+        is_touching_line = abs(perpendicular_offset) < 0.5  # Small threshold for floating point comparison
+        
+        # Round all corners if not touching line, only top corners if touching line
+        round_bottom_corners = not is_touching_line
+        
         # Draw rounded rectangle
-        draw_rounded_polygon(frame, pts, bar_corner_radius, color, bar_mask if enable_glow else None)
+        draw_rounded_polygon(frame, pts, bar_corner_radius, color, bar_mask if enable_glow else None, round_bottom_corners=round_bottom_corners)
         
         # Track active notes for particle emission
         note_key = (note, start_time)
