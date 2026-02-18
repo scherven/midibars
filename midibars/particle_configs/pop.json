@@ -3,7 +3,7 @@
   "emitters": [
     {
       "width": 100,
-      "height": 0,
+      "height": 10,
       "frames": 5,
       "spawn_amount": 400,
       "spawns": 5,
@@ -16,16 +16,19 @@
         "scale": [1.0, 0.3, 0.0],
         "shape": "circle",
         "opacity": [1.0, 0.8, 0.0],
-        "red": 255,
-        "green": 200,
-        "blue": 100
+        "red": 125,
+        "green": 125,
+        "blue": 125
       },
       "particle_variation": {
         "lifetime": 20,
-        "x_speed": 24,
-        "y_speed": 24,
-        "scale": 0.2,
-        "rotation": 360
+        "x_speed": 1,
+        "y_speed": 1,
+        "scale": [0.5, 0.1, 0.0],
+        "rotation": 360,
+        "red": 125,
+        "green": 125,
+        "blue": 125
       }
     }
   ]

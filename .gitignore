@@ -11,3 +11,15 @@ attempt1213fixed.mp3
 midibars/.env
 *.mp4
 *.pyc
+midibars/bubbles/__init__.py
+midibars/bubbles/emitter.py
+midibars/bubbles/particle.py
+midibars/bubbles/particle_effect.py
+midibars/bubbles/renderers/__init__.py
+midibars/bubbles/renderers/effect_renderer.py
+midibars/bubbles/renderers/image_effect_renderer.py
+midibars/bubbles/renderers/pygame_effect_renderer.py
+midibars/bubbles/textures/circle16x16.png
+midibars/bubbles/textures/circle_soft16x16.png
+midibars/bubbles/textures/heart16x16.png
+midibars/bubbles/textures/square16x16.png
