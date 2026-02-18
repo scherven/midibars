@@ -66,7 +66,7 @@ KEY_WIDTHS = [16, 27, 16, 13, 26, 12,
   # Array of key widths, e.g., [50, 30, 50, 30, 50, 50, 30, 50, 30, 50, 30, 50]
 
 # Visual effects settings
-ENABLE_GLOW = True  # Enable glow effect on bars
+ENABLE_GLOW = False  # Enable glow effect on bars
 GLOW_INTENSITY = 0.6  # Glow intensity (0.0 to 1.0)
 GLOW_BLUR_RADIUS = 15  # Gaussian blur radius for glow (higher = more blur)
 
@@ -86,6 +86,9 @@ RANDOM_COLOR_BRIGHTNESS = 0.9  # Brightness for random colors (0.0 to 1.0)
 
 # Particle size (for bubbles renderer base_size)
 PARTICLE_SIZE = 3  # Base particle size in pixels
+
+# Bar appearance settings
+BAR_CORNER_RADIUS = 5  # Corner radius for rounded bars in pixels
 # ============================================
 # Video processing functions
 # ============================================
@@ -120,117 +123,12 @@ def load_particle_config(config_name):
     config_path = os.path.join(PARTICLE_CONFIG_DIR, config_name)
     if not os.path.exists(config_path):
         # Try to download tornado.json from GitHub if it doesn't exist
-        if config_name == TORNADO_PARTICLE_CONFIG:
-            return get_default_tornado_config()
+        # if config_name == TORNADO_PARTICLE_CONFIG:
+            # return get_default_tornado_config()
         return None
     
     with open(config_path, 'r') as f:
         return json.load(f)
-
-def get_default_tornado_config():
-    """Get default tornado configuration (from bubbles examples)."""
-    return {
-        "loops": -1,
-        "emitters": [
-            {
-                "width": 20,
-                "height": 0,
-                "frames": 5,
-                "spawn_amount": 15,
-                "spawns": -1,  # Infinite for continuous emission
-                "particle_settings": {
-                    "interpolation": "cosine",
-                    "lifetime": 120,
-                    "x_speed": [8, -10, 12, -14, 16, -18],
-                    "y_speed": -0.2,
-                    "y_acceleration": -0.02,
-                    "scale": [0.2, 0.1, 0.3, 0.2, 0.4, 0.3],
-                    "shape": "circle",
-                    "colourise": True,
-                    "opacity": [1, 0],
-                    "red": 200,
-                    "green": 200,
-                    "blue": 200
-                },
-                "particle_variation": {
-                    "lifetime": 30,
-                    "x_speed": [2, 3, 4, 5, 6, 7],
-                    "y_speed": 0.2,
-                    "scale": [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-                }
-            }
-        ]
-    }
-
-def get_default_pop_config():
-    """Get default pop/explosion configuration."""
-    return {
-        "loops": 1,
-        "emitters": [
-            {
-                "width": 0,
-                "height": 0,
-                "frames": 1,
-                "spawn_amount": 30,
-                "spawns": 1,
-                "particle_settings": {
-                    "lifetime": 60,
-                    "x_speed": 0,
-                    "y_speed": 0,
-                    "x_acceleration": 0,
-                    "y_acceleration": 0,
-                    "scale": [1.0, 0.3, 0.0],
-                    "shape": "circle",
-                    "opacity": [1.0, 0.8, 0.0],
-                    "red": 255,
-                    "green": 200,
-                    "blue": 100
-                },
-                "particle_variation": {
-                    "lifetime": 20,
-                    "x_speed": 5,
-                    "y_speed": 5,
-                    "scale": 0.2,
-                    "rotation": 360
-                }
-            }
-        ]
-    }
-
-def get_default_particle_config():
-    """Get default particle configuration for short notes."""
-    return {
-        "loops": 1,
-        "emitters": [
-            {
-                "width": 0,
-                "height": 0,
-                "frames": 1,
-                "spawn_amount": 5,
-                "spawns": 1,
-                "particle_settings": {
-                    "lifetime": 30,
-                    "x_speed": 0,
-                    "y_speed": 0,
-                    "x_acceleration": 0,
-                    "y_acceleration": 0,
-                    "scale": 1.0,
-                    "shape": "circle",
-                    "opacity": [1.0, 0.0],
-                    "red": 255,
-                    "green": 100,
-                    "blue": 100
-                },
-                "particle_variation": {
-                    "lifetime": 10,
-                    "x_speed": 2,
-                    "y_speed": 2,
-                    "scale": 0.3,
-                    "rotation": 180
-                }
-            }
-        ]
-    }
 
 def generate_random_color():
     """Generate a random RGB color with good saturation and brightness."""
@@ -306,9 +204,9 @@ class BubblesParticleSystem:
         self.active_emitters = {}
         
         # Load particle configs
-        self.default_config = load_particle_config(DEFAULT_PARTICLE_CONFIG) or get_default_particle_config()
-        self.tornado_config = load_particle_config(TORNADO_PARTICLE_CONFIG) or get_default_tornado_config()
-        self.pop_config = load_particle_config(POP_PARTICLE_CONFIG) or get_default_pop_config()
+        self.default_config = load_particle_config(DEFAULT_PARTICLE_CONFIG)# or get_default_particle_config()
+        self.tornado_config = load_particle_config(TORNADO_PARTICLE_CONFIG)# or get_default_tornado_config()
+        self.pop_config = load_particle_config(POP_PARTICLE_CONFIG)# or get_default_pop_config()
     
     def create_emitter_from_config(self, config, x, y, note_key=None, custom_settings=None):
         """Create an emitter from a JSON config.
@@ -559,6 +457,58 @@ def apply_glow_effect(frame, mask, glow_color_bgr, intensity=0.6, blur_radius=15
     
     return result
 
+def draw_rounded_polygon(img, pts, radius, color, mask=None):
+    """
+    Draw a rounded rectangle polygon.
+    
+    Args:
+        img: Image to draw on
+        pts: Array of 4 points defining the rectangle corners [bottom_left, bottom_right, top_right, top_left]
+        radius: Corner radius in pixels
+        color: BGR color tuple
+        mask: Optional mask to draw on (for glow effects)
+    """
+    if len(pts) != 4:
+        return
+    
+    pts = np.array(pts, dtype=np.int32)
+    
+    # Ensure radius is not too large
+    # Calculate approximate width and height
+    width = np.linalg.norm(pts[1] - pts[0])
+    height = np.linalg.norm(pts[2] - pts[1])
+    radius = min(radius, min(width, height) / 2)
+    
+    if radius <= 0:
+        # If radius is 0 or negative, just draw a regular polygon
+        if mask is not None:
+            cv2.fillPoly(mask, [pts], 255)
+        cv2.fillPoly(img, [pts], color)
+        return
+    
+    # Create a mask for the rounded rectangle
+    rounded_mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
+    
+    # Draw the main rectangle
+    cv2.fillPoly(rounded_mask, [pts], 255)
+    
+    # Use morphological operations to round the corners
+    # Create an elliptical kernel for rounding
+    kernel_size = int(radius * 2) | 1  # Ensure odd number
+    if kernel_size > 1:
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+        # Erode slightly to create rounded corners
+        rounded_mask = cv2.erode(rounded_mask, kernel, iterations=1)
+        # Dilate back to restore size but with rounded corners
+        rounded_mask = cv2.dilate(rounded_mask, kernel, iterations=1)
+    
+    # Apply the rounded mask
+    if mask is not None:
+        mask[rounded_mask > 0] = 255
+    
+    # Draw on the main image
+    img[rounded_mask > 0] = color
+
 def map_note_to_position(note, key_widths):
     """
     Map MIDI note number (0-127) to position along the piano line.
@@ -701,12 +651,8 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0,
             [top_left_x, top_left_y]
         ], np.int32)
         
-        # Draw to mask if glow is enabled
-        if ENABLE_GLOW and bar_mask is not None:
-            cv2.fillPoly(bar_mask, [pts], 255)
-        
-        # Draw filled rectangle
-        cv2.fillPoly(frame, [pts], color)
+        # Draw rounded rectangle
+        draw_rounded_polygon(frame, pts, BAR_CORNER_RADIUS, color, bar_mask if ENABLE_GLOW else None)
         
         # Track active notes for particle emission
         note_key = (note, start_time)

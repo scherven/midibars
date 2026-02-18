@@ -1,33 +1,32 @@
 {
-	"loops": 1,
-	"emitters": [
-		{
-			"width": 10,
-			"height": 0,
-			"frames": 1,
-			"spawn_amount": 40,
-			"spawns": 1,
-			"particle_settings": {
-				"lifetime": 60,
-				"x_speed": 0,
-				"y_speed": 0,
-				"x_acceleration": 0,
-				"y_acceleration": 0,
-				"scale": [1.0, 0.3, 0.0],
-				"shape": "circle",
-				"opacity": [1.0, 0.8, 0.0],
-				"red": 255,
-				"green": 200,
-				"blue": 100
-			},
-			"particle_variation": {
-				"lifetime": 20,
-				"x_speed": 24,
-				"y_speed": 24,
-				"scale": 0.2,
-				"rotation": 360
-			}
-		}
-	]
+  "loops": 1,
+  "emitters": [
+    {
+      "width": 100,
+      "height": 0,
+      "frames": 5,
+      "spawn_amount": 400,
+      "spawns": 5,
+      "particle_settings": {
+        "lifetime": 60,
+        "x_speed": 5,
+        "y_speed": 5,
+        "x_acceleration": 5,
+        "y_acceleration": 5,
+        "scale": [1.0, 0.3, 0.0],
+        "shape": "circle",
+        "opacity": [1.0, 0.8, 0.0],
+        "red": 255,
+        "green": 200,
+        "blue": 100
+      },
+      "particle_variation": {
+        "lifetime": 20,
+        "x_speed": 24,
+        "y_speed": 24,
+        "scale": 0.2,
+        "rotation": 360
+      }
+    }
+  ]
 }
-
