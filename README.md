@@ -27,3 +27,7 @@ ffmpeg -i attempt13_copy.mov -vf zscale=t=linear:npl=100,format=gbrpf32le,zscale
 ```
 ffmpeg -i attempt13_copy.mov -vf zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p -c:v libx265 -crf 22 -preset medium -tune fastdecode attempt13_copy_sdr.mov
 ```
+
+```
+ffmpeg -i  attempt13_copy.mov -q:v 0  attempt13_copy.mp4
+```

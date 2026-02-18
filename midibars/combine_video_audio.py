@@ -162,7 +162,8 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0):
         
         # Calculate note duration to determine height
         note_duration = end_time - start_time
-        note_height = min(max_height, max(min_height, note_duration * duration_scale))
+        speed = spawn_offset / lead_time
+        note_height = max(min_height, note_duration * speed)
         
         # Calculate animation state
         if current_time < start_time:
@@ -171,13 +172,14 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0):
             perpendicular_offset = spawn_offset * (1 - progress)
             current_height = note_height
         else:
-            # Phase 2: Bar is at the line, height shrinking
-            if note_duration > 0:
-                progress = max(0, min(1, (current_time - start_time) / note_duration))
-            else:
-                progress = 1
-            perpendicular_offset = 0
-            current_height = note_height * (1 - progress)
+            speed = spawn_offset / lead_time
+            elapsed = current_time - start_time
+            raw_offset = -speed * elapsed  # how far past the line the bottom would be
+
+            # Clamp bottom to the line, but subtract the overshoot from the height
+            overshoot = max(0, -raw_offset)  # how far below the line it wanted to go
+            perpendicular_offset = max(0, raw_offset)
+            current_height = max(0, note_height - overshoot)
         
         # Right edge of bar
         bar_right_x = bar_left_x + key_width * dir_x
