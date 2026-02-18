@@ -13,3 +13,17 @@
 - [ ] split up uploads
 
 56.2%
+
+
+
+```bash
+ffmpeg -i attempt13_copy.mov -vf "scale=in_range=full:out_range=full" -color_range 2 -c:v libx264 -crf 18 fixed_input.mov
+```
+
+```
+ffmpeg -i attempt13_copy.mov -vf zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p -c:v libx265 -crf 22 -preset medium -tune fastdecode attempt13_copy.mov
+```
+
+```
+ffmpeg -i attempt13_copy.mov -vf zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p -c:v libx265 -crf 22 -preset medium -tune fastdecode attempt13_copy_sdr.mov
+```
