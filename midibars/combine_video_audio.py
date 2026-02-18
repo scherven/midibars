@@ -5,7 +5,20 @@ import os
 import json
 import numpy as np
 import math
+import colorsys
 from tqdm import tqdm
+from PIL import Image
+
+# Try to import bubbles library
+# from bubbles import ParticleEffect, ImageEffectRenderer, Emitter
+from bubbles.emitter import Emitter
+from bubbles.particle import Particle
+from bubbles.particle_effect import ParticleEffect
+from bubbles.renderers.image_effect_renderer import ImageEffectRenderer
+BUBBLES_AVAILABLE = True
+# except ImportError:
+    # BUBBLES_AVAILABLE = False
+    # Don't print warning here - will print when actually trying to use it
 
 from midi_loader import load_midi_notes
 
@@ -14,7 +27,7 @@ from midi_loader import load_midi_notes
 # ============================================
 
 # Path to your video file
-VIDEO_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt13_copy.mov"
+VIDEO_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt13_copy2.mp4"
 
 # Path to your MP3 file
 MP3_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt1213fixed.mp3"
@@ -51,6 +64,28 @@ KEY_WIDTHS = [16, 27, 16, 13, 26, 12,
               22, 18, 20, 20, 23, 19, 19, 25, 18, 
               24, 19, 19, 26, 15, 26, 15, 26, 20, 28]
   # Array of key widths, e.g., [50, 30, 50, 30, 50, 50, 30, 50, 30, 50, 30, 50]
+
+# Visual effects settings
+ENABLE_GLOW = True  # Enable glow effect on bars
+GLOW_INTENSITY = 0.6  # Glow intensity (0.0 to 1.0)
+GLOW_BLUR_RADIUS = 15  # Gaussian blur radius for glow (higher = more blur)
+
+ENABLE_PARTICLES = True  # Enable particle effects (requires: pip install bubbles pillow)
+
+# Particle effect configuration paths
+PARTICLE_CONFIG_DIR = "particle_configs"  # Directory containing JSON particle configs
+DEFAULT_PARTICLE_CONFIG = "default.json"  # Default particle config for short notes
+TORNADO_PARTICLE_CONFIG = "tornado.json"  # Tornado effect for long notes
+POP_PARTICLE_CONFIG = "pop.json"  # Pop effect when notes end
+LONG_NOTE_THRESHOLD = 1.0  # Notes longer than this (seconds) get tornado effect
+
+# Random color settings
+USE_RANDOM_COLORS = True  # Use random colors for particles
+RANDOM_COLOR_SATURATION = 0.8  # Saturation for random colors (0.0 to 1.0)
+RANDOM_COLOR_BRIGHTNESS = 0.9  # Brightness for random colors (0.0 to 1.0)
+
+# Particle size (for bubbles renderer base_size)
+PARTICLE_SIZE = 3  # Base particle size in pixels
 # ============================================
 # Video processing functions
 # ============================================
@@ -75,6 +110,454 @@ def get_video_info(video_path):
         'frame_count': frame_count,
         'duration': duration
     }
+
+# ============================================
+# Particle Configuration Loading
+# ============================================
+
+def load_particle_config(config_name):
+    """Load a particle configuration from JSON file."""
+    config_path = os.path.join(PARTICLE_CONFIG_DIR, config_name)
+    if not os.path.exists(config_path):
+        # Try to download tornado.json from GitHub if it doesn't exist
+        if config_name == TORNADO_PARTICLE_CONFIG:
+            return get_default_tornado_config()
+        return None
+    
+    with open(config_path, 'r') as f:
+        return json.load(f)
+
+def get_default_tornado_config():
+    """Get default tornado configuration (from bubbles examples)."""
+    return {
+        "loops": -1,
+        "emitters": [
+            {
+                "width": 20,
+                "height": 0,
+                "frames": 5,
+                "spawn_amount": 15,
+                "spawns": -1,  # Infinite for continuous emission
+                "particle_settings": {
+                    "interpolation": "cosine",
+                    "lifetime": 120,
+                    "x_speed": [8, -10, 12, -14, 16, -18],
+                    "y_speed": -0.2,
+                    "y_acceleration": -0.02,
+                    "scale": [0.2, 0.1, 0.3, 0.2, 0.4, 0.3],
+                    "shape": "circle",
+                    "colourise": True,
+                    "opacity": [1, 0],
+                    "red": 200,
+                    "green": 200,
+                    "blue": 200
+                },
+                "particle_variation": {
+                    "lifetime": 30,
+                    "x_speed": [2, 3, 4, 5, 6, 7],
+                    "y_speed": 0.2,
+                    "scale": [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+                }
+            }
+        ]
+    }
+
+def get_default_pop_config():
+    """Get default pop/explosion configuration."""
+    return {
+        "loops": 1,
+        "emitters": [
+            {
+                "width": 0,
+                "height": 0,
+                "frames": 1,
+                "spawn_amount": 30,
+                "spawns": 1,
+                "particle_settings": {
+                    "lifetime": 60,
+                    "x_speed": 0,
+                    "y_speed": 0,
+                    "x_acceleration": 0,
+                    "y_acceleration": 0,
+                    "scale": [1.0, 0.3, 0.0],
+                    "shape": "circle",
+                    "opacity": [1.0, 0.8, 0.0],
+                    "red": 255,
+                    "green": 200,
+                    "blue": 100
+                },
+                "particle_variation": {
+                    "lifetime": 20,
+                    "x_speed": 5,
+                    "y_speed": 5,
+                    "scale": 0.2,
+                    "rotation": 360
+                }
+            }
+        ]
+    }
+
+def get_default_particle_config():
+    """Get default particle configuration for short notes."""
+    return {
+        "loops": 1,
+        "emitters": [
+            {
+                "width": 0,
+                "height": 0,
+                "frames": 1,
+                "spawn_amount": 5,
+                "spawns": 1,
+                "particle_settings": {
+                    "lifetime": 30,
+                    "x_speed": 0,
+                    "y_speed": 0,
+                    "x_acceleration": 0,
+                    "y_acceleration": 0,
+                    "scale": 1.0,
+                    "shape": "circle",
+                    "opacity": [1.0, 0.0],
+                    "red": 255,
+                    "green": 100,
+                    "blue": 100
+                },
+                "particle_variation": {
+                    "lifetime": 10,
+                    "x_speed": 2,
+                    "y_speed": 2,
+                    "scale": 0.3,
+                    "rotation": 180
+                }
+            }
+        ]
+    }
+
+def generate_random_color():
+    """Generate a random RGB color with good saturation and brightness."""
+    # Generate random hue, use configured saturation and brightness
+    hue = np.random.random()
+    rgb = colorsys.hsv_to_rgb(
+        hue,
+        RANDOM_COLOR_SATURATION,
+        RANDOM_COLOR_BRIGHTNESS
+    )
+    # Convert to 0-255 range
+    return tuple(int(c * 255) for c in rgb)
+
+def apply_random_colors_to_config(config):
+    """Apply random colors to particle settings in a config."""
+    if not USE_RANDOM_COLORS:
+        return config
+    
+    random_color = generate_random_color()
+    
+    def update_colors(obj):
+        """Recursively update color values in config."""
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if key in ['red', 'green', 'blue']:
+                    obj[key] = random_color[0] if key == 'red' else (random_color[1] if key == 'green' else random_color[2])
+                elif isinstance(value, (dict, list)):
+                    update_colors(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                update_colors(item)
+    
+    config_copy = json.loads(json.dumps(config))  # Deep copy
+    update_colors(config_copy)
+    return config_copy
+
+# ============================================
+# OpenCV <-> PIL Conversion Functions
+# ============================================
+
+def cv2_to_pil(cv_image):
+    """Convert OpenCV BGR image to PIL RGB image."""
+    # OpenCV uses BGR, PIL uses RGB
+    rgb_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+    return Image.fromarray(rgb_image)
+
+def pil_to_cv2(pil_image):
+    """Convert PIL RGB image to OpenCV BGR image."""
+    # Convert PIL to numpy array
+    rgb_array = np.array(pil_image)
+    # Convert RGB to BGR
+    return cv2.cvtColor(rgb_array, cv2.COLOR_RGB2BGR)
+
+# ============================================
+# Particle System for Visual Effects
+# ============================================
+
+class BubblesParticleSystem:
+    """Particle system using the bubbles library."""
+    def __init__(self, width, height, fps=30.0):
+        if not BUBBLES_AVAILABLE:
+            raise RuntimeError("bubbles library not available")
+        
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.renderer = ImageEffectRenderer(base_size=PARTICLE_SIZE)
+        
+        # Create a master particle effect that will contain all emitters
+        self.master_effect = ParticleEffect()
+        
+        # Track active emitters by their note/start_time key
+        self.active_emitters = {}
+        
+        # Load particle configs
+        self.default_config = load_particle_config(DEFAULT_PARTICLE_CONFIG) or get_default_particle_config()
+        self.tornado_config = load_particle_config(TORNADO_PARTICLE_CONFIG) or get_default_tornado_config()
+        self.pop_config = load_particle_config(POP_PARTICLE_CONFIG) or get_default_pop_config()
+    
+    def create_emitter_from_config(self, config, x, y, note_key=None, custom_settings=None):
+        """Create an emitter from a JSON config.
+        
+        Args:
+            config: Particle config dictionary
+            x, y: Emitter position
+            note_key: Optional key to track this emitter
+            custom_settings: Optional dict to override particle_settings (e.g., {'y_speed': -5})
+        """
+        if not BUBBLES_AVAILABLE:
+            return None
+        
+        # Apply random colors if enabled
+        config = apply_random_colors_to_config(config)
+        
+        # Get emitter config from JSON
+        if "emitters" in config and len(config["emitters"]) > 0:
+            emitter_config = config["emitters"][0].copy()
+        else:
+            return None
+        
+        # Set position
+        emitter_config["x"] = x
+        emitter_config["y"] = y
+        
+        # Apply custom settings if provided
+        if custom_settings and "particle_settings" in emitter_config:
+            # Handle x_speed specially if it's a list in the config
+            if "x_speed" in custom_settings and isinstance(emitter_config["particle_settings"].get("x_speed"), list):
+                # If custom_settings x_speed is a single value, apply it to all elements in the list
+                if not isinstance(custom_settings["x_speed"], list):
+                    base_x_speed = custom_settings["x_speed"]
+                    emitter_config["particle_settings"]["x_speed"] = [val + base_x_speed for val in emitter_config["particle_settings"]["x_speed"]]
+                else:
+                    # If custom_settings x_speed is also a list, replace it
+                    emitter_config["particle_settings"]["x_speed"] = custom_settings["x_speed"]
+                # Remove x_speed from custom_settings so we don't override it again
+                custom_settings = {k: v for k, v in custom_settings.items() if k != "x_speed"}
+            emitter_config["particle_settings"].update(custom_settings)
+        
+        # Create emitter
+        emitter = Emitter.load_from_dict(emitter_config)
+        self.master_effect.add_emitter(emitter)
+        
+        # Track emitter if note_key provided
+        if note_key:
+            self.active_emitters[note_key] = emitter
+        
+        return emitter
+    
+    def start_tornado_effect(self, x, y, note_key, bar_height, direction_x, direction_y):
+        """Start a continuous tornado effect for a note that stretches up the bar.
+        
+        Args:
+            x, y: Emitter position (at the bar base)
+            note_key: Key to track this emitter
+            bar_height: Height of the bar in pixels
+            direction_x, direction_y: Direction vector for the bar (perpendicular, pointing up)
+        """
+        if not BUBBLES_AVAILABLE:
+            return
+        
+        # Create tornado emitter from config
+        config = self.tornado_config.copy()
+        
+        # Calculate speed needed to reach bar height along the bar direction
+        # Particles need to travel bar_height pixels in the direction of the bar
+        # With lifetime of 120 frames, speed per frame = bar_height / 120
+        target_speed = bar_height / 120.0  # pixels per frame to reach top in 120 frames
+        
+        # Calculate speed components in x and y directions
+        speed_x = target_speed * direction_x
+        speed_y = target_speed * direction_y
+        
+        # Customize tornado to stretch up the bar
+        # The tornado config has x_speed as an array for oscillation
+        # Get base oscillation from config and add bar direction movement
+        base_x_speeds = config["emitters"][0]["particle_settings"]["x_speed"]
+        if not isinstance(base_x_speeds, list):
+            base_x_speeds = [base_x_speeds]
+        
+        custom_settings = {
+            "x_speed": [val + speed_x for val in base_x_speeds],  # Oscillating with base movement
+            "y_speed": speed_y,  # Go in bar direction
+            "y_acceleration": speed_y * 0.01  # Slight acceleration in bar direction
+        }
+        
+        emitter = self.create_emitter_from_config(config, x, y, note_key, custom_settings)
+        return emitter
+    
+    def stop_tornado_effect(self, note_key, velocity=64, direction_x=0, direction_y=-1):
+        """Stop tornado effect for a note and emit pop effect.
+        
+        Args:
+            note_key: Key of the emitter to stop
+            velocity: MIDI velocity (0-127) to scale pop distance (0-120 pixels)
+            direction_x, direction_y: Direction vector for pop (default upward)
+        """
+        if not BUBBLES_AVAILABLE:
+            return
+        
+        # Get the emitter position before removing it
+        emitter = self.active_emitters.get(note_key)
+        if emitter:
+            x, y = emitter.x, emitter.y
+            # Remove tornado emitter
+            if emitter in self.master_effect.get_emitters():
+                self.master_effect._emitters.remove(emitter)
+            del self.active_emitters[note_key]
+            
+            # Calculate pop distance based on velocity (0-127 maps to 0-120 pixels)
+            max_pop_distance = 120  # pixels
+            pop_distance = (velocity / 127.0) * max_pop_distance
+            
+            # Calculate speed per frame to reach max_pop_distance
+            # With lifetime of 60 frames, speed = distance / lifetime
+            pop_speed = pop_distance / 60.0  # pixels per frame
+            
+            # Calculate speed components in x and y directions
+            pop_speed_x = pop_speed * direction_x
+            pop_speed_y = pop_speed * direction_y
+            
+            # Customize pop to go in bar direction based on velocity
+            custom_settings = {
+                "x_speed": pop_speed_x,
+                "y_speed": pop_speed_y,
+                "y_acceleration": -pop_speed_y * 0.1  # Gravity pulling opposite to direction
+            }
+            
+            # Emit pop effect
+            self.create_emitter_from_config(self.pop_config, x, y, custom_settings=custom_settings)
+    
+    def update(self, dt):
+        """Update particle effects."""
+        if not BUBBLES_AVAILABLE:
+            return
+        self.master_effect.update(deltatime=dt)
+        
+        # Clean up finished emitters
+        # Check all emitters and remove those that are finished
+        current_emitters = list(self.master_effect.get_emitters())
+        emitters_to_remove = []
+        
+        for emitter in current_emitters:
+            # Check if emitter is finished
+            # For single-burst emitters (spawns == 1), check if particles are gone
+            if hasattr(emitter, 'spawns') and emitter.spawns == 1:
+                # Check if emitter has finished spawning and has no particles left
+                if hasattr(emitter, 'particles'):
+                    # Get particle count - particles list might be managed internally
+                    try:
+                        particle_count = len(emitter.particles) if emitter.particles else 0
+                        # Also check if emitter has finished spawning
+                        spawned_count = getattr(emitter, '_spawned', 0)
+                        if spawned_count >= 1 and particle_count == 0:
+                            emitters_to_remove.append(emitter)
+                    except (AttributeError, TypeError):
+                        # If we can't check particles, skip this emitter
+                        pass
+            # For finite spawn emitters, check if they've completed spawning and have no particles
+            elif hasattr(emitter, 'spawns') and emitter.spawns > 0:
+                try:
+                    spawned_count = getattr(emitter, '_spawned', 0)
+                    particle_count = len(emitter.particles) if hasattr(emitter, 'particles') and emitter.particles else 0
+                    if spawned_count >= emitter.spawns and particle_count == 0:
+                        emitters_to_remove.append(emitter)
+                except (AttributeError, TypeError):
+                    pass
+        
+        # Remove finished emitters
+        for emitter in emitters_to_remove:
+            try:
+                if emitter in self.master_effect._emitters:
+                    self.master_effect._emitters.remove(emitter)
+            except (ValueError, AttributeError):
+                # Emitter might have already been removed
+                pass
+        
+        # Clean up tracked emitters that are no longer active
+        current_emitters_set = set(self.master_effect.get_emitters())
+        tracked_keys_to_remove = []
+        for key, tracked_emitter in self.active_emitters.items():
+            if tracked_emitter not in current_emitters_set:
+                tracked_keys_to_remove.append(key)
+        for key in tracked_keys_to_remove:
+            del self.active_emitters[key]
+    
+    def draw(self, frame):
+        """Draw particles on frame using bubbles."""
+        if not BUBBLES_AVAILABLE:
+            return
+        
+        # Convert OpenCV frame to PIL Image
+        pil_image = cv2_to_pil(frame)
+        
+        # Render particles onto PIL image
+        self.renderer.render_effect(self.master_effect, pil_image)
+        
+        # Convert back to OpenCV format
+        frame[:] = pil_to_cv2(pil_image)
+    
+    def clear(self):
+        """Clear all particles."""
+        if BUBBLES_AVAILABLE:
+            self.master_effect.emitters = []
+            self.active_emitters = {}
+
+def apply_glow_effect(frame, mask, glow_color_bgr, intensity=0.6, blur_radius=15):
+    """
+    Apply glow effect to regions defined by mask.
+    
+    Args:
+        frame: Original frame
+        mask: Binary mask where white pixels indicate glow regions
+        glow_color_bgr: BGR color tuple for the glow (e.g., (0, 0, 255) for red)
+        intensity: Glow intensity (0.0 to 1.0)
+        blur_radius: Gaussian blur radius (must be odd number)
+    
+    Returns:
+        Frame with glow effect applied
+    """
+    if blur_radius % 2 == 0:
+        blur_radius += 1  # Ensure odd number
+    
+    # Create glow by blurring the mask
+    glow_mask = cv2.GaussianBlur(mask.astype(np.float32), (blur_radius, blur_radius), 0)
+    
+    # Normalize to 0-1 range
+    glow_mask = glow_mask / 255.0
+    
+    # Apply glow to frame
+    result = frame.copy().astype(np.float32)
+    
+    # Create glow color image
+    b, g, r = glow_color_bgr
+    glow_color = np.zeros_like(frame, dtype=np.float32)
+    glow_color[:, :, 0] = b
+    glow_color[:, :, 1] = g
+    glow_color[:, :, 2] = r
+    
+    # Blend glow with original frame
+    for c in range(3):  # BGR channels
+        result[:, :, c] = result[:, :, c] + glow_mask * glow_color[:, :, c] * intensity
+    
+    # Clamp values to valid range
+    result = np.clip(result, 0, 255).astype(np.uint8)
+    
+    return result
 
 def map_note_to_position(note, key_widths):
     """
@@ -103,9 +586,10 @@ def map_note_to_position(note, key_widths):
     
     return None
 
-def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0):
+def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0, 
+                   particle_system=None, previous_active_notes=None, fps=30.0):
     """
-    Draw MIDI note bars on the frame with animation.
+    Draw MIDI note bars on the frame with animation, glow, and particle effects.
     Uses pre-calculated parameters for efficiency.
     
     Args:
@@ -114,9 +598,12 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0):
         notes: List of MIDI note events
         current_time: Current video time in seconds
         lead_time: How many seconds before the note the bar should appear
+        particle_system: BubblesParticleSystem instance for particle effects (optional)
+        previous_active_notes: Set of (note, start_time) tuples from previous frame (optional)
+        fps: Frames per second for particle system updates
     """
     if midi_bar_params is None:
-        return frame
+        return frame, set()
     
     x1 = midi_bar_params['x1']
     y1 = midi_bar_params['y1']
@@ -129,9 +616,19 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0):
     
     spawn_offset = 500  # pixels to the right of the line
     color = (0, 0, 255)  # Red in BGR
-    max_height = 200  # Maximum height in pixels
+    max_height = 200000000  # Maximum height in pixels
     min_height = 20   # Minimum height in pixels
     duration_scale = 50  # pixels per second
+    
+    h, w = frame.shape[:2]
+    
+    # Create mask for glow effect if enabled
+    bar_mask = None
+    if ENABLE_GLOW:
+        bar_mask = np.zeros((h, w), dtype=np.uint8)
+    
+    # Track currently active notes for particle emission
+    current_active_notes = set()
     
     # Draw notes that are visible (spawning, moving, or playing)
     for note_event in notes:
@@ -167,7 +664,6 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0):
         
         # Calculate animation state
         if current_time < start_time:
-            # Phase 1: Bar is moving from right towards the line
             progress = max(0, min(1, (current_time - (start_time - lead_time)) / lead_time))
             perpendicular_offset = spawn_offset * (1 - progress)
             current_height = note_height
@@ -197,16 +693,75 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0):
         top_right_x = int(bottom_right_x + current_height * right_perp_x)
         top_right_y = int(bottom_right_y + current_height * right_perp_y)
         
-        # Draw filled rectangle
+        # Create polygon points
         pts = np.array([
             [int(bottom_left_x), int(bottom_left_y)],
             [int(bottom_right_x), int(bottom_right_y)],
             [top_right_x, top_right_y],
             [top_left_x, top_left_y]
         ], np.int32)
+        
+        # Draw to mask if glow is enabled
+        if ENABLE_GLOW and bar_mask is not None:
+            cv2.fillPoly(bar_mask, [pts], 255)
+        
+        # Draw filled rectangle
         cv2.fillPoly(frame, [pts], color)
+        
+        # Track active notes for particle emission
+        note_key = (note, start_time)
+        is_note_active = current_time >= start_time and current_time <= end_time
+        
+        if is_note_active:
+            current_active_notes.add(note_key)
+            
+            # Calculate emission position
+            emit_x = (bottom_left_x + bottom_right_x) / 2
+            emit_y = (bottom_left_y + bottom_right_y) / 2
+            
+            # Handle particle effects
+            if ENABLE_PARTICLES and particle_system is not None:
+                # Check if note just started
+                note_just_started = (previous_active_notes is not None and 
+                                    note_key not in previous_active_notes)
+                
+                # Determine if this is a long note
+                is_long_note = note_duration > LONG_NOTE_THRESHOLD
+                
+                if note_just_started:
+                    if is_long_note:
+                        # Start tornado effect for long notes - stretch up the bar
+                        particle_system.start_tornado_effect(
+                            emit_x, emit_y, note_key,
+                            note_height, right_perp_x, right_perp_y
+                        )
+                    else:
+                        # Use default config for short notes
+                        config = particle_system.default_config.copy()
+                        particle_system.create_emitter_from_config(config, emit_x, emit_y)
+        
+        # Check if note just ended (was active in previous frame but not now)
+        if (ENABLE_PARTICLES and particle_system is not None and 
+            previous_active_notes is not None and 
+            note_key in previous_active_notes and 
+            not is_note_active):
+            # Note just ended - stop tornado and emit pop
+            emit_x = (bottom_left_x + bottom_right_x) / 2
+            emit_y = (bottom_left_y + bottom_right_y) / 2
+            velocity = note_event.get('velocity', 64)  # Default to 64 if not present
+            particle_system.stop_tornado_effect(note_key, velocity, right_perp_x, right_perp_y)
     
-    return frame
+    # Apply glow effect if enabled
+    if ENABLE_GLOW and bar_mask is not None and np.any(bar_mask > 0):
+        frame = apply_glow_effect(frame, bar_mask, color, GLOW_INTENSITY, GLOW_BLUR_RADIUS)
+    
+    # Update and draw particles if enabled
+    if ENABLE_PARTICLES and particle_system is not None:
+        dt = 1.0 / fps if fps > 0 else 1.0 / 30.0
+        particle_system.update(dt)
+        particle_system.draw(frame)
+    
+    return frame, current_active_notes
 
 def blackout_right_of_line(frame, start_point, end_point):
     """
@@ -430,7 +985,8 @@ def prepare_frame_transformations(piano_start, piano_end, key_widths, midi_notes
         'midi_bar_params': midi_bar_params
     }
 
-def transform_frame(frame, video_time, transform_params, output_width, output_height):
+def transform_frame(frame, video_time, transform_params, output_width, output_height,
+                   particle_system=None, previous_active_notes=None, fps=30.0):
     """
     Apply all transformations to a single frame.
     
@@ -440,9 +996,12 @@ def transform_frame(frame, video_time, transform_params, output_width, output_he
         transform_params: Dictionary from prepare_frame_transformations()
         output_width: Final output width (after cropping)
         output_height: Final output height (after cropping)
+        particle_system: BubblesParticleSystem instance for particle effects (optional)
+        previous_active_notes: Set of active notes from previous frame (optional)
+        fps: Frames per second for particle system updates
     
     Returns:
-        Transformed frame (cropped to output dimensions)
+        Tuple of (transformed frame, current_active_notes)
     """
     # Rotate frame if needed
     rotation_matrix = transform_params.get('rotation_matrix')
@@ -457,6 +1016,7 @@ def transform_frame(frame, video_time, transform_params, output_width, output_he
         )
     
     # Apply visualization if enabled
+    current_active_notes = set()
     if transform_params['has_visualization']:
         frame = blackout_right_of_line(
             frame, 
@@ -464,15 +1024,35 @@ def transform_frame(frame, video_time, transform_params, output_width, output_he
             transform_params['piano_end']
         )
         if transform_params['midi_notes'] is not None:
-            frame = draw_midi_bars(
+            frame, current_active_notes = draw_midi_bars(
                 frame, 
                 transform_params['midi_bar_params'], 
                 transform_params['midi_notes'], 
-                video_time
+                video_time,
+                particle_system=particle_system,
+                previous_active_notes=previous_active_notes,
+                fps=fps
             )
     
     # Crop to final output dimensions (using view, not copy)
-    return frame[:output_height, :output_width]
+    frame = frame[:output_height, :output_width]
+    
+    # Rotate 90 degrees counterclockwise
+    h, w = frame.shape[:2]
+    center_x, center_y = w / 2, h / 2
+    # 90° CCW rotation matrix
+    rot_90_ccw = cv2.getRotationMatrix2D((center_x, center_y), 90, 1.0)
+    # After 90° CCW: new width = old height, new height = old width
+    new_w, new_h = h, w
+    # Adjust translation to account for new dimensions
+    rot_90_ccw[0, 2] += (new_w / 2) - center_x
+    rot_90_ccw[1, 2] += (new_h / 2) - center_y
+    frame = cv2.warpAffine(frame, rot_90_ccw, (new_w, new_h), 
+                          flags=cv2.INTER_LINEAR, 
+                          borderMode=cv2.BORDER_CONSTANT, 
+                          borderValue=(0, 0, 0))
+    
+    return frame, current_active_notes
 
 def combine_video_audio(video_path, audio_path, output_path, audio_start_percent=0, 
                         piano_start=None, piano_end=None, key_widths=None,
@@ -549,16 +1129,21 @@ def combine_video_audio(video_path, audio_path, output_path, audio_start_percent
     out_h = transform_params["output_height"]
     out_w = out_w - (out_w % 2)  # round down to even
     out_h = out_h - (out_h % 2)
+    
+    # After 90° CCW rotation, dimensions swap
+    final_w = out_h
+    final_h = out_w
+    final_w = final_w - (final_w % 2)  # round down to even
+    final_h = final_h - (final_h % 2)
 
-    # Build ffmpeg command with output dimensions
+    # Build ffmpeg command with output dimensions (after 90° CCW rotation)
     ffmpeg_cmd = [
         'ffmpeg',
         '-y',
         # Video input (raw frames from stdin)
         '-f', 'rawvideo',
         '-vcodec', 'rawvideo',
-        # '-s', f'{transform_params["output_width"]}x{transform_params["output_height"]}',
-        '-s', f'{out_w}x{out_h}',
+        '-s', f'{final_w}x{final_h}',
         '-pix_fmt', 'bgr24',
         '-r', str(fps),
         '-i', '-',  # Read video from stdin
@@ -582,19 +1167,42 @@ def combine_video_audio(video_path, audio_path, output_path, audio_start_percent
         output_path
     ]
 
-    ffmpeg_process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
+    ffmpeg_process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=None)
+
+    # Initialize particle system if enabled
+    particle_system = None
+    if ENABLE_PARTICLES and transform_params['has_visualization']:
+        if not BUBBLES_AVAILABLE:
+            raise RuntimeError("bubbles library is required for particle effects. Install with: pip install bubbles pillow")
+        try:
+            particle_system = BubblesParticleSystem(out_w, out_h, fps)
+            print("Particle effects enabled")
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize particle system: {e}")
+    
+    if ENABLE_GLOW and transform_params['has_visualization']:
+        print(f"Glow effects enabled (intensity: {GLOW_INTENSITY}, blur: {GLOW_BLUR_RADIUS})")
 
     print(f"Processing {total_frames} frames...")
     frame_count = 0
+    previous_active_notes = set()
 
     with tqdm(total=total_frames, desc="Processing frames", unit="frame") as pbar:
         while True:
             ret, frame = cap.read()
-            if not ret:
+            if not ret or frame_count > 1000:
                 break
 
             video_time = frame_count / fps
-            frame = transform_frame(frame, video_time, transform_params, out_w, out_h)
+            frame, current_active_notes = transform_frame(
+                frame, video_time, transform_params, out_w, out_h,
+                particle_system=particle_system,
+                previous_active_notes=previous_active_notes,
+                fps=fps
+            )
+            previous_active_notes = current_active_notes
+            
+            # Frame is now rotated 90° CCW, so dimensions are swapped
             ffmpeg_process.stdin.write(frame.tobytes())
             frame_count += 1
             pbar.update(1)

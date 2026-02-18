@@ -22,8 +22,8 @@
 			},
 			"particle_variation": {
 				"lifetime": 20,
-				"x_speed": 8,
-				"y_speed": 8,
+				"x_speed": 24,
+				"y_speed": 24,
 				"scale": 0.2,
 				"rotation": 360
 			}
