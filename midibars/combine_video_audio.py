@@ -11,6 +11,7 @@ from particle_system import BubblesParticleSystem, BUBBLES_AVAILABLE
 from frame_effects import (
     draw_midi_bars,
     blackout_right_of_line,
+    draw_title_card,
     ENABLE_GLOW,
     GLOW_INTENSITY,
     GLOW_BLUR_RADIUS,
@@ -358,6 +359,9 @@ def transform_frame(frame, video_time, transform_params, output_width, output_he
                           flags=cv2.INTER_LINEAR, 
                           borderMode=cv2.BORDER_CONSTANT, 
                           borderValue=(0, 0, 0))
+    
+    # Draw title card (before rotation, so it appears correctly after rotation)
+    frame = draw_title_card(frame, video_time, title_duration=9.7, fade_duration=1.0)
     
     return frame, current_active_notes
 

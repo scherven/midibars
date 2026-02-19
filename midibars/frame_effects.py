@@ -5,6 +5,7 @@ Handles drawing bars, glow effects, and other frame modifications.
 
 import cv2
 import numpy as np
+import math
 
 
 # ============================================
@@ -462,6 +463,117 @@ def blackout_right_of_line(frame, start_point, end_point):
             cv2.rectangle(frame, (int(x1), 0), (w, h), (0, 0, 0), -1)
         else:  # Line is on the right, blackout left side
             cv2.rectangle(frame, (0, 0), (int(x1), h), (0, 0, 0), -1)
+    
+    return frame
+
+
+def draw_title_card(frame, video_time, title_duration=9.7, fade_duration=1.0):
+    """
+    Draw a title card that fades in and out.
+    The video will be rotated 90° clockwise, so text is positioned accordingly.
+    
+    Args:
+        frame: OpenCV frame (numpy array)
+        video_time: Current video time in seconds
+        title_duration: Total duration the title should be visible (default 9.7 seconds)
+        fade_duration: Duration of fade in/out in seconds (default 1.0 seconds)
+    
+    Returns:
+        Modified frame with title card
+    """
+    if video_time < 0 or video_time > title_duration:
+        return frame
+    
+    h, w = frame.shape[:2]
+    
+    # Calculate opacity based on fade in/out
+    if video_time < fade_duration:
+        # Fade in
+        opacity = video_time / fade_duration
+    elif video_time > title_duration - fade_duration:
+        # Fade out
+        opacity = (title_duration - video_time) / fade_duration
+    else:
+        # Fully visible
+        opacity = 1.0
+    
+    if opacity <= 0:
+        return frame
+    
+    # Since the video will be rotated 90° clockwise (which is 90° CCW in code),
+    # we need to position text so that after rotation:
+    # - Top text appears slightly above middle (horizontally)
+    # - Middle text appears at center
+    # - Bottom text appears at bottom
+    
+    # Before rotation: frame is w x h
+    # After 90° CCW: frame becomes h x w
+    # So we place text on the right side (which becomes bottom after rotation)
+    # and adjust vertical position (which becomes horizontal after rotation)
+    
+    # Font settings
+    font_face = cv2.FONT_HERSHEY_COMPLEX  # Serif-like font
+    font_scale_large = 1.4
+    font_scale_medium = 1.1
+    font_scale_small = 1.1
+    font_thickness_bold = 3
+    font_thickness_normal = 2
+    color = (255, 255, 255)  # White text
+    
+    # Calculate text positions
+    # After rotation, we want:
+    # - Top line: slightly above middle (horizontally) -> before rotation: slightly left of center (vertically)
+    # - Middle line: at center -> before rotation: at center (vertically)
+    # - Bottom line: at bottom -> before rotation: on the right side
+    
+    # Position text on the right side of frame (which becomes bottom after rotation)
+    text_x = int(w * 0.85) + 200  # Right side of frame
+    
+    # Vertical positions (which become horizontal after rotation)
+    # Center of frame
+    center_y = h // 2 - 50
+    
+    # Top line: "TRANSCENDENTAL ÉTUDE NO. 11 IN D♭ MAJOR"
+    # Slightly above middle after rotation -> slightly left of center before rotation
+    top_y = center_y - 50
+    
+    # Middle line: "HARMONIES DU SOIR" (bold)
+    middle_y = center_y
+    
+    # Bottom line: "FRANZ LISZT"
+    bottom_y = center_y - 95
+    
+    # Get text sizes for centering
+    top_text = "TRANSCENDENTAL ETUDE NO. 11 IN Db MAJOR"
+    middle_text = "HARMONIES DU SOIR"
+    bottom_text = "FRANZ LISZT"
+    
+    # Calculate text sizes
+    (top_w, top_h), _ = cv2.getTextSize(top_text, font_face, font_scale_medium, font_thickness_normal)
+    (middle_w, middle_h), _ = cv2.getTextSize(middle_text, font_face, font_scale_large, font_thickness_bold)
+    (bottom_w, bottom_h), _ = cv2.getTextSize(bottom_text, font_face, font_scale_small, font_thickness_normal)
+    
+    # Create overlay for text with opacity
+    overlay = frame.copy()
+    
+    # Draw text on overlay
+    # Top text
+    cv2.putText(overlay, top_text, 
+                (text_x - top_w, top_y), 
+                font_face, font_scale_medium, color, font_thickness_normal, cv2.LINE_AA)
+    
+    # Middle text (bold)
+    cv2.putText(overlay, middle_text, 
+                (text_x - middle_w, middle_y), 
+                font_face, font_scale_large, color, font_thickness_bold, cv2.LINE_AA)
+    
+    # Bottom text
+    cv2.putText(overlay, bottom_text, 
+                (text_x - bottom_w, bottom_y), 
+                font_face, font_scale_small, color, font_thickness_normal, cv2.LINE_AA)
+    
+    # Blend overlay with original frame using opacity
+    cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
     
     return frame
 
