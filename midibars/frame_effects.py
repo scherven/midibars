@@ -244,7 +244,7 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0,
     cumulative_widths = midi_bar_params['cumulative_widths']
     key_widths_scaled = midi_bar_params['key_widths_scaled']
     
-    spawn_offset = 500  # pixels to the right of the line
+    spawn_offset = 650  # pixels to the right of the line
     color = (0, 0, 255)  # Red in BGR
     max_height = 200000000  # Maximum height in pixels
     min_height = 20   # Minimum height in pixels
@@ -285,7 +285,7 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0,
             continue
         
         # Use pre-calculated cumulative width and key width
-        cumulative_width = cumulative_widths[key_index]
+        cumulative_width = cumulative_widths[key_index] #- 150
         key_width = key_widths_scaled[key_index]
         
         # Left edge of bar (always on the line at key start position)
@@ -416,15 +416,18 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0,
     return frame, current_active_notes
 
 
-def blackout_right_of_line(frame, start_point, end_point):
+def blackout_right_of_line(frame, start_point, end_point, key_widths_scaled=None):
     """
     Black out everything to the right of the piano line (higher x side).
     The line is extrapolated to y=0 and y=frame_height so the blackout covers the full frame.
+    
+    Optionally draws alternating red/green strips along the line for debugging (one strip per key width).
     
     Args:
         frame: OpenCV frame (numpy array)
         start_point: [x, y] coordinates where piano line starts
         end_point: [x, y] coordinates where piano line ends
+        key_widths_scaled: Optional array of key widths in pixels along the line (for debug strips)
     
     Returns:
         Modified frame with the right side blacked out
@@ -463,6 +466,33 @@ def blackout_right_of_line(frame, start_point, end_point):
             cv2.rectangle(frame, (int(x1), 0), (w, h), (0, 0, 0), -1)
         else:  # Line is on the right, blackout left side
             cv2.rectangle(frame, (0, 0), (int(x1), h), (0, 0, 0), -1)
+    
+    # Debug: draw KEY_WIDTHS along the line as alternating red/green strips
+    # if key_widths_scaled is not None and len(key_widths_scaled) > 0:
+    #     line_length = math.sqrt(dx * dx + dy * dy)
+    #     if line_length < 1e-6:
+    #         return frame
+    #     dir_x = dx / line_length
+    #     dir_y = dy / line_length
+    #     perp_x = -dir_y
+    #     perp_y = dir_x
+    #     strip_thickness = 4  # pixels perpendicular to the line
+    #     half = strip_thickness / 2.0
+    #     cumulative = 0.0
+    #     for i, kw in enumerate(key_widths_scaled):
+    #         a_x = x1 + cumulative * dir_x
+    #         a_y = y1 + cumulative * dir_y
+    #         cumulative += float(kw)
+    #         b_x = x1 + cumulative * dir_x
+    #         b_y = y1 + cumulative * dir_y
+    #         color = (0, 255, 0) if i % 2 == 0 else (0, 0, 255)  # BGR: green, red
+    #         pts_strip = np.array([
+    #             [int(a_x - half * perp_x), int(a_y - half * perp_y)],
+    #             [int(a_x + half * perp_x), int(a_y + half * perp_y)],
+    #             [int(b_x + half * perp_x), int(b_y + half * perp_y)],
+    #             [int(b_x - half * perp_x), int(b_y - half * perp_y)]
+    #         ], np.int32)
+    #         cv2.fillPoly(frame, [pts_strip], color)
     
     return frame
 
@@ -544,8 +574,8 @@ def draw_title_card(frame, video_time, title_duration=9.7, fade_duration=1.0):
     bottom_y = center_y - 95
     
     # Get text sizes for centering
-    top_text = "TRANSCENDENTAL ETUDE NO. 11 IN Db MAJOR"
-    middle_text = "HARMONIES DU SOIR"
+    top_text = "TRANSCENDENTAL ETUDE NO. 12 IN Bb MAJOR"
+    middle_text = "CHASSE-NEIGE"
     bottom_text = "FRANZ LISZT"
     
     # Calculate text sizes

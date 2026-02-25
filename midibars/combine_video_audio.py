@@ -6,6 +6,7 @@ import numpy as np
 import math
 from tqdm import tqdm
 
+from key_widths import calculate_key_widths_from_frame
 from midi_loader import load_midi_notes
 from particle_system import BubblesParticleSystem, BUBBLES_AVAILABLE
 from frame_effects import (
@@ -25,42 +26,48 @@ from frame_effects import (
 # ============================================
 
 # Path to your video file
-VIDEO_PATH = "/Users/simonchervenak/Documents/GitHub/midi/IMG_2131.mov"
+VIDEO_PATH = "/Users/simonchervenak/Documents/GitHub/midi/cn/cnr3 copy 2.MOV"
 
 # Path to your MP3 file
-MP3_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt13_fixed.mp3"
+MP3_PATH = "/Users/simonchervenak/Documents/GitHub/midi/cn/cnr3-fixed.mp3"
 
 # Path to your MIDI file
-MIDI_PATH = "/Users/simonchervenak/Documents/GitHub/midi/attempt1213fixed.mid"
+MIDI_PATH = "/Users/simonchervenak/Documents/GitHub/midi/cn/cnr3 copy.mid"
 
 # MP3 start percentage (0 = start from beginning, 60 = start from 60% through the MP3)
 # This determines where in the MP3 the video will start syncing
-MP3_START_PERCENT = 55.69
+MP3_START_PERCENT = 72.7
 
 # MIDI start percentage (0 = start from beginning, 50 = start from 50% through the MIDI)
 # This determines where in the MIDI file the visualization should start
-MIDI_START_PERCENT = 56.18
+MIDI_START_PERCENT = 73.01
 
 # Output file path
-OUTPUT_PATH = "/Users/simonchervenak/Documents/GitHub/midi/output_with_audio.mp4"
+OUTPUT_PATH = "/Users/simonchervenak/Documents/GitHub/midi/cn/output_with_audio.mp4"
 
 # Piano key visualization settings
 # Set to None to disable visualization
-PIANO_START = [570, 92]  # [x, y] coordinates where piano starts, e.g., [100, 200]
-PIANO_END = [560, 1829]  # [x2, y2] coordinates where piano ends, e.g., [1800, 200]
-KEY_WIDTHS = [16, 27, 16, 13, 26, 12, 
-         25, 18, 13, 24, 12, 25, 
-              13, 24, 
-              16, 16, 
-              24, 14, 22, 20, 
-              14, 24, 13,
-              24, 14, 23, 17, 17, 22, 17, 22, 18, 
-              18, 22, 14, 22, 15, 23, 16, 17, 23, 17, 
-              23, 18, 18, 23, 16, 22, 16, 23, 17, 
-              18, 23, 18, 22, 19, 19, 23, 16, 23, 
-              16, 24, 17, 18, 23, 19, 23, 19, 20, 
-              22, 18, 20, 20, 23, 19, 19, 25, 18, 
-              24, 19, 19, 26, 15, 26, 15, 26, 20, 28]
+PIANO_START = [450, 22]  # [x, y] coordinates where piano starts, e.g., [100, 200]
+PIANO_END = [480, 1855]  # [x2, y2] coordinates where piano ends, e.g., [1800, 200]
+KEY_WIDTHS = [22, 27, 16, 18, 24, 
+              16, 25, 19, 15, 24, 
+              15, 25, 15, 24, 20, 
+              19, 24, 18, 22, 20, 
+              16, 24, 16, 22, 16, 
+              23, 20, 17, 22, 19,
+              22, 22, 20, 22, 18, 
+              22, 18, 23, 16, 19, 
+              23, 17, 23, 20, 21, 
+              23, 16, 22, 16, 23,
+              17, 18, 23, 21, 22, 
+              21, 21, 23, 16, 23, 
+              16, 24, 17, 18, 23, 
+              19, 23, 21, 20, 22, 
+              18, 20, 20, 23, 19, 
+              19, 25, 18, 24, 19, 
+              19, 26, 15, 26, 15, 
+              26, 20, 28]
+# KEY_WIDTHS = [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]
   # Array of key widths, e.g., [50, 30, 50, 30, 50, 50, 30, 50, 30, 50, 30, 50]
 
 # Visual effects settings (imported from frame_effects and particle_system)
@@ -311,6 +318,7 @@ def transform_frame(frame, video_time, transform_params, output_width, output_he
     Returns:
         Tuple of (transformed frame, current_active_notes)
     """
+    
     # Rotate frame if needed
     rotation_matrix = transform_params.get('rotation_matrix')
     if rotation_matrix is not None:
@@ -329,7 +337,8 @@ def transform_frame(frame, video_time, transform_params, output_width, output_he
         frame = blackout_right_of_line(
             frame, 
             transform_params['piano_start'], 
-            transform_params['piano_end']
+            transform_params['piano_end'],
+            key_widths_scaled=transform_params.get('midi_bar_params') and transform_params['midi_bar_params'].get('key_widths_scaled')
         )
         if transform_params['midi_notes'] is not None:
             frame, current_active_notes = draw_midi_bars(
@@ -504,7 +513,7 @@ def combine_video_audio(video_path, audio_path, output_path, audio_start_percent
             # if frame_count < 100: 
                 # frame_count += 1
                 # continue
-            if not ret:# or frame_count > 1000:
+            if not ret:# or frame_count > 300:
                 break
 
             video_time = frame_count / fps
