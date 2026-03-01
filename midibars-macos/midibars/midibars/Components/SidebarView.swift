@@ -71,12 +71,7 @@ struct SidebarView: View {
                     Text("Scale:")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    TextField("", value: $project.videoScale, formatter: {
-                        let f = NumberFormatter()
-                        f.maximumFractionDigits = 2
-                        f.minimumFractionDigits = 0
-                        return f
-                    }())
+                    TextField("", value: $project.videoScale, formatter: scaleNumberFormatter)
                         .font(.caption)
                         .monospacedDigit()
                         .textFieldStyle(.plain)
@@ -317,24 +312,7 @@ struct SidebarView: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-
-//            if let midiData = project.midiData {
-//                Button("Fit to MIDI Range") {
-//                    project.pianoLowNote = Int(midiData.minPitch)
-//                    project.pianoHighNote = Int(midiData.maxPitch)
-//                }
-//                .font(.caption)
-//                .buttonStyle(.plain)
-//                .foregroundStyle(.secondary)
-//            }
         }
-    }
-
-    private func noteName(_ pitch: Int) -> String {
-        let names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-        guard pitch >= 0, pitch < 128 else { return "?" }
-        let octave = (pitch / 12) - 1
-        return "\(names[pitch % 12])\(octave)"
     }
 
     // MARK: - Helpers
@@ -355,93 +333,5 @@ struct SidebarView: View {
         importingAudio = false
         importingMIDI = false
         importTypes = []
-    }
-}
-
-// MARK: - Subviews
-
-private struct SectionHeader: View {
-    let title: String
-    let icon: String
-
-    var body: some View {
-        Label(title, systemImage: icon)
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.secondary)
-    }
-}
-
-private struct FileImportRow: View {
-    let icon: String
-    let label: String
-    let url: URL?
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 13))
-                    .frame(width: 18)
-                    .foregroundStyle(.tint)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(label)
-                        .font(.subheadline)
-                        .foregroundStyle(.primary)
-                    if let url {
-                        Text(url.lastPathComponent)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                }
-
-                Spacer()
-
-                Image(systemName: "folder")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(url != nil ? Color.accentColor.opacity(0.07) : Color(nsColor: .controlBackgroundColor))
-            )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct CropSlider: View {
-    let label: String
-    @Binding var value: CGFloat
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Text(label)
-                .font(.caption)
-                .frame(width: 44, alignment: .leading)
-                .foregroundStyle(.secondary)
-            Slider(value: $value, in: 0...1.0)
-                .controlSize(.small)
-            TextField("", value: percentageBinding, format: .number.precision(.fractionLength(0...1)))
-                .font(.caption)
-                .monospacedDigit()
-                .textFieldStyle(.plain)
-                .frame(width: 32, alignment: .trailing)
-            Text("%")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var percentageBinding: Binding<Double> {
-        Binding(
-            get: { Double(value * 100) },
-            set: { value = CGFloat(min(max($0, 0), 100) / 100) }
-        )
     }
 }

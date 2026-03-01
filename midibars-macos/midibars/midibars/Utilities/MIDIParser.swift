@@ -1,20 +1,5 @@
 import Foundation
 
-struct MIDINote {
-    let pitch: UInt8
-    let velocity: UInt8
-    let startTime: Double
-    let duration: Double
-    let channel: UInt8
-}
-
-struct MIDIData {
-    let notes: [MIDINote]
-    let duration: Double
-    let minPitch: UInt8
-    let maxPitch: UInt8
-}
-
 enum MIDIParser {
     static func parse(from url: URL) -> MIDIData? {
         guard let data = try? Data(contentsOf: url), data.count >= 14 else { return nil }
@@ -27,7 +12,7 @@ enum MIDIParser {
         let headerLen = Int(readU32(data, at: pos))
         pos += 4
 
-        pos += 2 // format
+        pos += 2
         let numTracks = Int(readU16(data, at: pos))
         pos += 2
         let division = readU16(data, at: pos)
@@ -122,7 +107,7 @@ enum MIDIParser {
         return buildNotes(from: allEvents, ticksPerQN: ticksPerQN)
     }
 
-    // MARK: - Note building
+    // MARK: - Note Building
 
     private static func buildNotes(from events: [(tick: Int, event: Event)], ticksPerQN: Int) -> MIDIData? {
         var tempo = 500_000
@@ -175,15 +160,15 @@ enum MIDIParser {
         )
     }
 
-    // MARK: - Internal event type
+    // MARK: - Internal Event Type
 
     private enum Event {
-        case noteOn(UInt8, UInt8, UInt8)  // channel, pitch, velocity
-        case noteOff(UInt8, UInt8)         // channel, pitch
-        case tempo(Int)                    // microseconds per quarter note
+        case noteOn(UInt8, UInt8, UInt8)
+        case noteOff(UInt8, UInt8)
+        case tempo(Int)
     }
 
-    // MARK: - Binary helpers
+    // MARK: - Binary Helpers
 
     private static func readASCII(_ d: Data, at o: Int, length n: Int) -> String? {
         guard o >= 0, o + n <= d.count else { return nil }

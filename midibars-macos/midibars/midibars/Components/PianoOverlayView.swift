@@ -17,17 +17,16 @@ struct PianoOverlayView: View {
 
             ZStack {
                 Canvas { context, canvasSize in
-                    let tl = denorm(project.pianoTopLeft, in: canvasSize)
-                    let tr = denorm(project.pianoTopRight, in: canvasSize)
-                    let bl = denorm(project.pianoBottomLeft, in: canvasSize)
-                    let br = denorm(project.pianoBottomRight, in: canvasSize)
+                    let tl = denormalize(project.pianoTopLeft, in: canvasSize)
+                    let tr = denormalize(project.pianoTopRight, in: canvasSize)
+                    let bl = denormalize(project.pianoBottomLeft, in: canvasSize)
+                    let br = denormalize(project.pianoBottomRight, in: canvasSize)
 
                     let edges = effectiveEdges()
-                    let whiteNotes = Self.whiteNotes(low: project.pianoLowNote, high: project.pianoHighNote)
-                    let blackNotes = Self.blackNotes(low: project.pianoLowNote, high: project.pianoHighNote)
-                    let whiteIndexMap = Dictionary(uniqueKeysWithValues: whiteNotes.enumerated().map { ($1, $0) })
+                    let whites = whiteNotes(low: project.pianoLowNote, high: project.pianoHighNote)
+                    let blacks = blackNotes(low: project.pianoLowNote, high: project.pianoHighNote)
+                    let whiteIndexMap = Dictionary(uniqueKeysWithValues: whites.enumerated().map { ($1, $0) })
 
-                    // 1) MIDI dropping bars (behind the piano)
                     if !project.isSettingPiano {
                         drawMidiBars(
                             context: context, tl: tl, tr: tr,
@@ -38,7 +37,6 @@ struct PianoOverlayView: View {
                     let showOutlines = project.showPianoOverlay || project.isSettingPiano || project.isAdjustingKeys
 
                     if showOutlines {
-                        // Semi-transparent fill when setting piano position
                         if project.isSettingPiano {
                             var fill = Path()
                             fill.move(to: tl)
@@ -49,9 +47,8 @@ struct PianoOverlayView: View {
                             context.fill(fill, with: .color(.white.opacity(0.08)))
                         }
 
-                        // White key separator lines
                         let edgeOpacity: Double = project.isAdjustingKeys ? 0.5 : 0.3
-                        for i in 0...whiteNotes.count {
+                        for i in 0...whites.count {
                             let f = CGFloat(edges[i])
                             let top = lerp(tl, tr, t: f)
                             let bot = lerp(bl, br, t: f)
@@ -61,11 +58,10 @@ struct PianoOverlayView: View {
                             context.stroke(line, with: .color(.white.opacity(edgeOpacity)), lineWidth: 0.5)
                         }
 
-                        // Black key bodies
-                        for note in blackNotes {
+                        for note in blacks {
                             let (lf, rf) = blackKeyFracs(note: note, whiteIndexMap: whiteIndexMap, edges: edges)
                             guard lf < rf else { continue }
-                            let path = quadPath(
+                            let path = quadrilateralPath(
                                 leftF: lf, rightF: rf,
                                 topG: 0, bottomG: Double(blackKeyHeightRatio),
                                 tl: tl, tr: tr, bl: bl, br: br
@@ -74,7 +70,6 @@ struct PianoOverlayView: View {
                             context.stroke(path, with: .color(.white.opacity(0.3)), lineWidth: 0.5)
                         }
 
-                        // Outer border
                         var outline = Path()
                         outline.move(to: tl)
                         outline.addLine(to: tr)
@@ -83,14 +78,12 @@ struct PianoOverlayView: View {
                         outline.closeSubpath()
                         context.stroke(outline, with: .color(.white.opacity(0.6)), lineWidth: 1.5)
 
-                        // Corner handles
                         if project.isSettingPiano {
                             for point in [tl, tr, bl, br] {
                                 drawHandle(context: context, at: point)
                             }
                         }
 
-                        // Edge adjustment: highlight active edge
                         if project.isAdjustingKeys, let idx = activeEdge, idx > 0, idx < edges.count - 1 {
                             let f = CGFloat(edges[idx])
                             let top = lerp(tl, tr, t: f)
@@ -167,7 +160,6 @@ struct PianoOverlayView: View {
 
         let currentTime = midiData.duration * (project.midiPlaybackPercent / 100.0)
 
-        // Perpendicular direction pointing "up" from the piano top edge
         let dx = tr.x - tl.x
         let dy = tr.y - tl.y
         let lineLen = hypot(dx, dy)
@@ -177,8 +169,6 @@ struct PianoOverlayView: View {
         var upY = -dx / lineLen
         if upY > 0 { upX = -upX; upY = -upY }
 
-        // Spawn distance: how far bars travel from spawn point to the piano top edge.
-        // Use the distance from the piano top-edge midpoint to the top of the canvas.
         let midY = (tl.y + tr.y) / 2
         let spawnDist: CGFloat = abs(upY) > 0.001 ? abs(midY / upY) : midY
         guard spawnDist > 1 else { return }
@@ -196,10 +186,9 @@ struct PianoOverlayView: View {
             guard currentTime >= start - barLeadTime, currentTime <= effectiveEnd else { continue }
             guard pitch >= project.pianoLowNote, pitch <= project.pianoHighNote else { continue }
 
-            // Horizontal fractions for this key
             let lf: Double
             let rf: Double
-            if Self.isBlack(pitch) {
+            if isBlackKey(pitch) {
                 let fracs = blackKeyFracs(note: pitch, whiteIndexMap: whiteIndexMap, edges: edges)
                 guard fracs.0 < fracs.1 else { continue }
                 (lf, rf) = fracs
@@ -250,30 +239,11 @@ struct PianoOverlayView: View {
     // MARK: - Key Layout
 
     private func effectiveEdges() -> [Double] {
-        let count = Self.whiteNotes(low: project.pianoLowNote, high: project.pianoHighNote).count
+        let count = whiteNotes(low: project.pianoLowNote, high: project.pianoHighNote).count
         if project.pianoWhiteKeyEdges.count == count + 1 {
             return project.pianoWhiteKeyEdges
         }
-        return Self.defaultEdges(whiteKeyCount: count)
-    }
-
-    static func defaultEdges(whiteKeyCount: Int) -> [Double] {
-        guard whiteKeyCount > 0 else { return [0, 1] }
-        return (0...whiteKeyCount).map { Double($0) / Double(whiteKeyCount) }
-    }
-
-    static func whiteNotes(low: Int, high: Int) -> [Int] {
-        guard high >= low else { return [] }
-        return (low...high).filter { !isBlack($0) }
-    }
-
-    static func blackNotes(low: Int, high: Int) -> [Int] {
-        guard high >= low else { return [] }
-        return (low...high).filter { isBlack($0) }
-    }
-
-    static func isBlack(_ note: Int) -> Bool {
-        [1, 3, 6, 8, 10].contains(note % 12)
+        return defaultPianoEdges(whiteKeyCount: count)
     }
 
     private func blackKeyFracs(note: Int, whiteIndexMap: [Int: Int], edges: [Double]) -> (Double, Double) {
@@ -289,41 +259,6 @@ struct PianoOverlayView: View {
         return (boundary - bw / 2, boundary + bw / 2)
     }
 
-    // MARK: - Geometry
-
-    private func quadPath(
-        leftF: Double, rightF: Double,
-        topG: Double, bottomG: Double,
-        tl: CGPoint, tr: CGPoint, bl: CGPoint, br: CGPoint
-    ) -> Path {
-        let pTL = bilinear(tl: tl, tr: tr, bl: bl, br: br, f: CGFloat(leftF), g: CGFloat(topG))
-        let pTR = bilinear(tl: tl, tr: tr, bl: bl, br: br, f: CGFloat(rightF), g: CGFloat(topG))
-        let pBR = bilinear(tl: tl, tr: tr, bl: bl, br: br, f: CGFloat(rightF), g: CGFloat(bottomG))
-        let pBL = bilinear(tl: tl, tr: tr, bl: bl, br: br, f: CGFloat(leftF), g: CGFloat(bottomG))
-
-        var path = Path()
-        path.move(to: pTL)
-        path.addLine(to: pTR)
-        path.addLine(to: pBR)
-        path.addLine(to: pBL)
-        path.closeSubpath()
-        return path
-    }
-
-    private func bilinear(tl: CGPoint, tr: CGPoint, bl: CGPoint, br: CGPoint, f: CGFloat, g: CGFloat) -> CGPoint {
-        let top = lerp(tl, tr, t: f)
-        let bot = lerp(bl, br, t: f)
-        return lerp(top, bot, t: g)
-    }
-
-    private func denorm(_ point: CGPoint, in size: CGSize) -> CGPoint {
-        CGPoint(x: point.x * size.width, y: point.y * size.height)
-    }
-
-    private func lerp(_ a: CGPoint, _ b: CGPoint, t: CGFloat) -> CGPoint {
-        CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
-    }
-
     // MARK: - Corner Interaction
 
     private func drawHandle(context: GraphicsContext, at point: CGPoint) {
@@ -336,10 +271,10 @@ struct PianoOverlayView: View {
 
     private func closestCornerIndex(to point: CGPoint, in size: CGSize) -> Int {
         let corners = [
-            denorm(project.pianoTopLeft, in: size),
-            denorm(project.pianoTopRight, in: size),
-            denorm(project.pianoBottomLeft, in: size),
-            denorm(project.pianoBottomRight, in: size),
+            denormalize(project.pianoTopLeft, in: size),
+            denormalize(project.pianoTopRight, in: size),
+            denormalize(project.pianoBottomLeft, in: size),
+            denormalize(project.pianoBottomRight, in: size),
         ]
         var bestIdx = 0
         var bestDist = CGFloat.infinity
@@ -363,8 +298,8 @@ struct PianoOverlayView: View {
     // MARK: - Edge Interaction
 
     private func fractionAlongTopEdge(point: CGPoint, in size: CGSize) -> Double {
-        let tl = denorm(project.pianoTopLeft, in: size)
-        let tr = denorm(project.pianoTopRight, in: size)
+        let tl = denormalize(project.pianoTopLeft, in: size)
+        let tr = denormalize(project.pianoTopRight, in: size)
         let dx = tr.x - tl.x
         let dy = tr.y - tl.y
         let len2 = dx * dx + dy * dy
