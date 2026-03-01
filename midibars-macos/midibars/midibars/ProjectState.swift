@@ -22,6 +22,9 @@ class ProjectState: ObservableObject {
     @Published var waveformSamples: [Float] = []
     @Published var isLoadingWaveform = false
 
+    @Published var midiData: MIDIData?
+    @Published var isLoadingMIDI = false
+
     let canvasAspectRatio: CGFloat = 16.0 / 9.0
 
     func loadVideo(url: URL) {
@@ -56,10 +59,23 @@ class ProjectState: ObservableObject {
     func loadMIDI(url: URL) {
         _ = url.startAccessingSecurityScopedResource()
         midiURL = url
+        isLoadingMIDI = true
+        midiData = nil
+
+        let expectedURL = url
+        Task.detached {
+            let parsed = MIDIParser.parse(from: expectedURL)
+            await MainActor.run { [weak self] in
+                guard let self, self.midiURL == expectedURL else { return }
+                self.midiData = parsed
+                self.isLoadingMIDI = false
+            }
+        }
     }
 
     func togglePlayback() {
         guard let player else { return }
+        player.isMuted = true
         if isPlaying {
             player.pause()
         } else {

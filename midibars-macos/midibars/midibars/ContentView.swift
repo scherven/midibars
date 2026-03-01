@@ -9,6 +9,11 @@ struct ContentView: View {
             Divider()
             VStack(spacing: 0) {
                 VideoCanvasView(project: project)
+                if project.midiURL != nil {
+                    Divider()
+                    MIDIPianoRollPanel(project: project)
+                        .frame(height: 120)
+                }
                 if project.audioURL != nil {
                     Divider()
                     AudioWaveformPanel(project: project)
@@ -16,6 +21,7 @@ struct ContentView: View {
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.25), value: project.midiURL != nil)
         .animation(.easeInOut(duration: 0.25), value: project.audioURL != nil)
     }
 }

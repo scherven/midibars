@@ -222,7 +222,7 @@ private struct CropSlider: View {
                 .font(.caption)
                 .frame(width: 44, alignment: .leading)
                 .foregroundStyle(.secondary)
-            Slider(value: $value, in: 0...0.5)
+            Slider(value: $value, in: 0...1.0)
                 .controlSize(.small)
             Text("\(Int(value * 100))%")
                 .font(.caption)

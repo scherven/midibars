@@ -81,7 +81,7 @@ struct VideoCanvasView: View {
     }
 
     private func canvasDisplaySize(in available: CGSize) -> CGSize {
-        let inset: CGFloat = 48
+        let inset: CGFloat = 0
         let maxW = max(available.width - inset * 2, 100)
         let maxH = max(available.height - inset * 2, 100)
         let aspect = project.canvasAspectRatio
