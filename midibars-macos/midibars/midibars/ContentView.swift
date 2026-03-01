@@ -7,8 +7,16 @@ struct ContentView: View {
         HStack(spacing: 0) {
             SidebarView(project: project)
             Divider()
-            VideoCanvasView(project: project)
+            VStack(spacing: 0) {
+                VideoCanvasView(project: project)
+                if project.audioURL != nil {
+                    Divider()
+                    AudioWaveformPanel(project: project)
+                        .frame(height: 120)
+                }
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: project.audioURL != nil)
     }
 }
 

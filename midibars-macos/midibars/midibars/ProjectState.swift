@@ -9,9 +9,18 @@ class ProjectState: ObservableObject {
 
     @Published var videoOffset: CGSize = .zero
     @Published var videoScale: CGFloat = 1.0
+    @Published var videoRotation: Double = 0
+
+    @Published var cropTop: CGFloat = 0
+    @Published var cropBottom: CGFloat = 0
+    @Published var cropLeft: CGFloat = 0
+    @Published var cropRight: CGFloat = 0
 
     @Published var player: AVPlayer?
     @Published var isPlaying = false
+
+    @Published var waveformSamples: [Float] = []
+    @Published var isLoadingWaveform = false
 
     let canvasAspectRatio: CGFloat = 16.0 / 9.0
 
@@ -30,6 +39,18 @@ class ProjectState: ObservableObject {
     func loadAudio(url: URL) {
         _ = url.startAccessingSecurityScopedResource()
         audioURL = url
+        isLoadingWaveform = true
+        waveformSamples = []
+
+        let expectedURL = url
+        Task.detached {
+            let samples = await WaveformExtractor.loadSamples(from: expectedURL)
+            await MainActor.run { [weak self] in
+                guard let self, self.audioURL == expectedURL else { return }
+                self.waveformSamples = samples
+                self.isLoadingWaveform = false
+            }
+        }
     }
 
     func loadMIDI(url: URL) {
@@ -50,5 +71,10 @@ class ProjectState: ObservableObject {
     func resetTransform() {
         videoOffset = .zero
         videoScale = 1.0
+        videoRotation = 0
+        cropTop = 0
+        cropBottom = 0
+        cropLeft = 0
+        cropRight = 0
     }
 }

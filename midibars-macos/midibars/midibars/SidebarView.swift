@@ -11,70 +11,18 @@ struct SidebarView: View {
     @State private var importingMIDI = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Import", icon: "square.and.arrow.down")
-
-                FileImportRow(icon: "film", label: "Video", url: project.videoURL) {
-                    importing = true
-                    importingVideo = true
-                    importTypes = [.movie, .video]
-                }
-                FileImportRow(icon: "waveform", label: "Audio", url: project.audioURL) {
-                    importing = true
-                    importingAudio = true
-                    importTypes = [.mp3, .audio]
-                }
-                FileImportRow(icon: "pianokeys", label: "MIDI", url: project.midiURL) {
-                    importing = true
-                    importingMIDI = true
-                    importTypes = [.midi]
-                }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                importSection
+                Divider()
+                transformSection
+                Divider()
+                cropSection
+                Divider()
+                playbackSection
             }
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Transform", icon: "arrow.up.left.and.arrow.down.right")
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Scale: \(project.videoScale, specifier: "%.2f")x")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                    Slider(value: $project.videoScale, in: 0.1...5.0)
-                        .controlSize(.small)
-                }
-
-                Button(action: project.resetTransform) {
-                    Label("Reset", systemImage: "arrow.counterclockwise")
-                        .font(.caption)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-            }
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Playback", icon: "play.circle")
-
-                Button(action: project.togglePlayback) {
-                    Label(
-                        project.isPlaying ? "Pause" : "Play",
-                        systemImage: project.isPlaying ? "pause.fill" : "play.fill"
-                    )
-                    .frame(maxWidth: .infinity)
-                }
-                .controlSize(.large)
-                .buttonStyle(.bordered)
-                .keyboardShortcut(KeyEquivalent(" "), modifiers: [])
-                .disabled(project.player == nil)
-            }
-
-            Spacer()
+            .padding(16)
         }
-        .padding(16)
         .frame(width: 200)
         .fileImporter(isPresented: $importing, allowedContentTypes: importTypes) { result in
             if case .success(let url) = result {
@@ -83,18 +31,122 @@ struct SidebarView: View {
             resetImports()
         }
     }
-    
-    func importFile(url: URL) {
-        if (importingVideo) {
+
+    // MARK: - Import
+
+    private var importSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Import", icon: "square.and.arrow.down")
+
+            FileImportRow(icon: "film", label: "Video", url: project.videoURL) {
+                importing = true
+                importingVideo = true
+                importTypes = [.movie, .video]
+            }
+            FileImportRow(icon: "waveform", label: "Audio", url: project.audioURL) {
+                importing = true
+                importingAudio = true
+                importTypes = [.mp3, .audio]
+            }
+            FileImportRow(icon: "pianokeys", label: "MIDI", url: project.midiURL) {
+                importing = true
+                importingMIDI = true
+                importTypes = [.midi]
+            }
+        }
+    }
+
+    // MARK: - Transform
+
+    private var transformSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Transform", icon: "arrow.up.left.and.arrow.down.right")
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Scale: \(project.videoScale, specifier: "%.2f")x")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Slider(value: $project.videoScale, in: 0.1...5.0)
+                    .controlSize(.small)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Rotation: \(Int(project.videoRotation))°")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Slider(value: $project.videoRotation, in: 0...360, step: 1)
+                    .controlSize(.small)
+
+                HStack(spacing: 4) {
+                    ForEach([0.0, 90.0, 180.0, 270.0], id: \.self) { angle in
+                        Button("\(Int(angle))°") {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                project.videoRotation = angle
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                    }
+                }
+            }
+
+            Button(action: project.resetTransform) {
+                Label("Reset All", systemImage: "arrow.counterclockwise")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Crop
+
+    private var cropSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Crop", icon: "crop")
+
+            CropSlider(label: "Top", value: $project.cropTop)
+            CropSlider(label: "Bottom", value: $project.cropBottom)
+            CropSlider(label: "Left", value: $project.cropLeft)
+            CropSlider(label: "Right", value: $project.cropRight)
+        }
+    }
+
+    // MARK: - Playback
+
+    private var playbackSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Playback", icon: "play.circle")
+
+            Button(action: project.togglePlayback) {
+                Label(
+                    project.isPlaying ? "Pause" : "Play",
+                    systemImage: project.isPlaying ? "pause.fill" : "play.fill"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .controlSize(.large)
+            .buttonStyle(.bordered)
+            .keyboardShortcut(KeyEquivalent(" "), modifiers: [])
+            .disabled(project.player == nil)
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func importFile(url: URL) {
+        if importingVideo {
             project.loadVideo(url: url)
-        } else if (importingAudio) {
+        } else if importingAudio {
             project.loadAudio(url: url)
-        } else if (importingMIDI) {
+        } else if importingMIDI {
             project.loadMIDI(url: url)
         }
     }
-    
-    func resetImports() {
+
+    private func resetImports() {
         importing = false
         importingVideo = false
         importingAudio = false
@@ -102,6 +154,8 @@ struct SidebarView: View {
         importTypes = []
     }
 }
+
+// MARK: - Subviews
 
 private struct SectionHeader: View {
     let title: String
@@ -155,5 +209,26 @@ private struct FileImportRow: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct CropSlider: View {
+    let label: String
+    @Binding var value: CGFloat
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .font(.caption)
+                .frame(width: 44, alignment: .leading)
+                .foregroundStyle(.secondary)
+            Slider(value: $value, in: 0...0.5)
+                .controlSize(.small)
+            Text("\(Int(value * 100))%")
+                .font(.caption)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(width: 30, alignment: .trailing)
+        }
     }
 }
