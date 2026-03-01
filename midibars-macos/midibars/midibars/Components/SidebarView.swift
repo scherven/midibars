@@ -20,59 +20,62 @@ struct SidebarView: View {
     @State private var playbackExpanded = true
 
     var body: some View {
-        List {
-            Section(isExpanded: $importExpanded) {
-                importSectionContent
-            } header: {
-                SectionHeader(title: "Import", icon: "square.and.arrow.down")
-            }
+        ScrollView {
+            VStack(spacing: 0) {
+                DisclosureGroup(isExpanded: $importExpanded) {
+                    importSectionContent
+                } label: {
+                    SectionHeader(title: "Import", icon: "square.and.arrow.down")
+                        .animation(.default, value: importExpanded)
+                }
 
-            if project.midiURL != nil {
-                Section(isExpanded: $pianoExpanded) {
-                    pianoSectionContent
-                } header: {
-                    SectionHeader(title: "Piano", icon: "pianokeys")
+                if project.midiURL != nil {
+                    DisclosureGroup(isExpanded: $pianoExpanded) {
+                        pianoSectionContent
+                    } label: {
+                        SectionHeader(title: "Piano", icon: "pianokeys")
+                    }
+                }
+
+                DisclosureGroup(isExpanded: $barsExpanded) {
+                    barSectionContent
+                } label: {
+                    SectionHeader(title: "Bars", icon: "chart.bar")
+                }
+
+                DisclosureGroup(isExpanded: $particlesExpanded) {
+                    particleSectionContent
+                } label: {
+                    SectionHeader(title: "Particles", icon: "sparkles")
+                }
+
+                DisclosureGroup(isExpanded: $textExpanded) {
+                    textSectionContent
+                } label: {
+                    SectionHeader(title: "Text / Titles", icon: "textformat")
+                }
+
+                DisclosureGroup(isExpanded: $transformExpanded) {
+                    transformSectionContent
+                } label: {
+                    SectionHeader(title: "Transform", icon: "arrow.up.left.and.arrow.down.right")
+                }
+
+                DisclosureGroup(isExpanded: $cropExpanded) {
+                    cropSectionContent
+                } label: {
+                    SectionHeader(title: "Crop", icon: "crop")
+                }
+
+                DisclosureGroup(isExpanded: $playbackExpanded) {
+                    playbackSectionContent
+                } label: {
+                    SectionHeader(title: "Playback", icon: "play.circle")
                 }
             }
-
-            Section(isExpanded: $barsExpanded) {
-                barSectionContent
-            } header: {
-                SectionHeader(title: "Bars", icon: "chart.bar")
-            }
-
-            Section(isExpanded: $particlesExpanded) {
-                particleSectionContent
-            } header: {
-                SectionHeader(title: "Particles", icon: "sparkles")
-            }
-
-            Section(isExpanded: $textExpanded) {
-                textSectionContent
-            } header: {
-                SectionHeader(title: "Text / Titles", icon: "textformat")
-            }
-
-            Section(isExpanded: $transformExpanded) {
-                transformSectionContent
-            } header: {
-                SectionHeader(title: "Transform", icon: "arrow.up.left.and.arrow.down.right")
-            }
-
-            Section(isExpanded: $cropExpanded) {
-                cropSectionContent
-            } header: {
-                SectionHeader(title: "Crop", icon: "crop")
-            }
-
-            Section(isExpanded: $playbackExpanded) {
-                playbackSectionContent
-            } header: {
-                SectionHeader(title: "Playback", icon: "play.circle")
-            }
+            .padding(.horizontal)
+            .transaction { $0.animation = nil }
         }
-        .foregroundStyle(Color.primary)
-        .listStyle(.sidebar)
         .frame(width: 220)
         .fileImporter(isPresented: $importing, allowedContentTypes: importTypes) { result in
             if case .success(let url) = result {

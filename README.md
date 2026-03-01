@@ -1,4 +1,17 @@
+# TODO MACOS
+
+- [x] get buttons back to white
+- [ ] make bars actually round
+- [ ] make bar & particle controls better
+- [ ] make title controls better
+- [ ] export as video
+
+
+
 # TODO
+
+
+
 - [ ] snap rotate (or at least type in an angle / go up and down by one degree or something)
 - [ ] fix the rotate handle
 - [ ] resize
