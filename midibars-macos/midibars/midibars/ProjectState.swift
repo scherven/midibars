@@ -44,12 +44,14 @@ class ProjectState: ObservableObject {
 
     @Published var showPianoOverlay: Bool = false
     @Published var isSettingPiano: Bool = false
+    @Published var isAdjustingKeys: Bool = false
     @Published var pianoTopLeft: CGPoint = CGPoint(x: 0.1, y: 0.55)
     @Published var pianoTopRight: CGPoint = CGPoint(x: 0.9, y: 0.55)
     @Published var pianoBottomLeft: CGPoint = CGPoint(x: 0.05, y: 0.95)
     @Published var pianoBottomRight: CGPoint = CGPoint(x: 0.95, y: 0.95)
     @Published var pianoLowNote: Int = 21
     @Published var pianoHighNote: Int = 108
+    @Published var pianoWhiteKeyEdges: [Double] = []
     @Published var activeMIDINotes: Set<UInt8> = []
 
     let canvasAspectRatio: CGFloat = 16.0 / 9.0
@@ -284,6 +286,15 @@ class ProjectState: ObservableObject {
         cropRight = 0
     }
 
+    func ensurePianoEdgesPopulated() {
+        let blackSet: Set<Int> = [1, 3, 6, 8, 10]
+        let whiteCount = (pianoLowNote...pianoHighNote).filter { !blackSet.contains($0 % 12) }.count
+        guard whiteCount > 0 else { return }
+        if pianoWhiteKeyEdges.count != whiteCount + 1 {
+            pianoWhiteKeyEdges = (0...whiteCount).map { Double($0) / Double(whiteCount) }
+        }
+    }
+
     // MARK: - Project Persistence
 
     func save(into config: inout ProjectConfig) {
@@ -310,7 +321,8 @@ class ProjectState: ObservableObject {
             bottomLeftX: pianoBottomLeft.x, bottomLeftY: pianoBottomLeft.y,
             bottomRightX: pianoBottomRight.x, bottomRightY: pianoBottomRight.y,
             lowNote: pianoLowNote, highNote: pianoHighNote,
-            showOverlay: showPianoOverlay
+            showOverlay: showPianoOverlay,
+            keyEdges: pianoWhiteKeyEdges.isEmpty ? nil : pianoWhiteKeyEdges
         )
 
         print("[midibars] save: videoBookmark=\(videoBookmark?.count ?? 0) bytes, audioBookmark=\(audioBookmark?.count ?? 0) bytes, midiBookmark=\(midiBookmark?.count ?? 0) bytes")
@@ -338,6 +350,7 @@ class ProjectState: ObservableObject {
             pianoLowNote = piano.lowNote
             pianoHighNote = piano.highNote
             showPianoOverlay = piano.showOverlay
+            pianoWhiteKeyEdges = piano.keyEdges ?? []
         }
 
         print("[midibars] restore: videoBookmark=\(config.videoBookmark?.count ?? 0) bytes, videoPath=\(config.videoPath ?? "nil")")
@@ -398,12 +411,14 @@ class ProjectState: ObservableObject {
 
         showPianoOverlay = false
         isSettingPiano = false
+        isAdjustingKeys = false
         pianoTopLeft = CGPoint(x: 0.1, y: 0.55)
         pianoTopRight = CGPoint(x: 0.9, y: 0.55)
         pianoBottomLeft = CGPoint(x: 0.05, y: 0.95)
         pianoBottomRight = CGPoint(x: 0.95, y: 0.95)
         pianoLowNote = 21
         pianoHighNote = 108
+        pianoWhiteKeyEdges = []
         activeMIDINotes = []
     }
 

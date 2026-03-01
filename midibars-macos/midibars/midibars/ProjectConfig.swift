@@ -12,6 +12,7 @@ struct PianoConfig: Codable {
     var lowNote: Int
     var highNote: Int
     var showOverlay: Bool
+    var keyEdges: [Double]?
 }
 
 struct ProjectConfig: Codable, Identifiable {

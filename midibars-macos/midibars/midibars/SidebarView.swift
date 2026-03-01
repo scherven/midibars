@@ -241,19 +241,53 @@ struct SidebarView: View {
                 .controlSize(.small)
 
             Button {
-                project.isSettingPiano.toggle()
                 if project.isSettingPiano {
+                    project.isSettingPiano = false
+                } else {
+                    project.isAdjustingKeys = false
+                    project.isSettingPiano = true
                     project.showPianoOverlay = true
                 }
             } label: {
                 Label(
-                    project.isSettingPiano ? "Done" : "Set Piano",
+                    project.isSettingPiano ? "Done" : "Set Position",
                     systemImage: project.isSettingPiano ? "checkmark.circle" : "hand.point.up.left"
                 )
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+
+            Button {
+                if project.isAdjustingKeys {
+                    project.isAdjustingKeys = false
+                } else {
+                    project.isSettingPiano = false
+                    project.ensurePianoEdgesPopulated()
+                    project.isAdjustingKeys = true
+                    project.showPianoOverlay = true
+                }
+            } label: {
+                Label(
+                    project.isAdjustingKeys ? "Done Adjusting" : "Adjust Keys",
+                    systemImage: project.isAdjustingKeys ? "checkmark.circle" : "slider.horizontal.3"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+
+            if !project.pianoWhiteKeyEdges.isEmpty {
+                Button("Reset Key Widths") {
+                    project.pianoWhiteKeyEdges = []
+                    if project.isAdjustingKeys {
+                        project.ensurePianoEdgesPopulated()
+                    }
+                }
+                .font(.caption)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
