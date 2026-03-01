@@ -42,6 +42,16 @@ class ProjectState: ObservableObject {
     @Published var midiData: MIDIData?
     @Published var isLoadingMIDI = false
 
+    @Published var showPianoOverlay: Bool = false
+    @Published var isSettingPiano: Bool = false
+    @Published var pianoTopLeft: CGPoint = CGPoint(x: 0.1, y: 0.55)
+    @Published var pianoTopRight: CGPoint = CGPoint(x: 0.9, y: 0.55)
+    @Published var pianoBottomLeft: CGPoint = CGPoint(x: 0.05, y: 0.95)
+    @Published var pianoBottomRight: CGPoint = CGPoint(x: 0.95, y: 0.95)
+    @Published var pianoLowNote: Int = 21
+    @Published var pianoHighNote: Int = 108
+    @Published var activeMIDINotes: Set<UInt8> = []
+
     let canvasAspectRatio: CGFloat = 16.0 / 9.0
 
     var currentTimeString: String {
@@ -242,8 +252,18 @@ class ProjectState: ObservableObject {
             let midiStartTime = midiData.duration * (min(max(midiStartPercent, 0), 100) / 100.0)
             midiPlaybackPercent = ((midiStartTime + videoCurrentTime) / midiData.duration) * 100.0
             midiPlaybackPercent = min(max(midiPlaybackPercent, 0), 100)
+
+            if showPianoOverlay {
+                let currentTime = midiData.duration * (midiPlaybackPercent / 100.0)
+                activeMIDINotes = Set(midiData.notes.filter {
+                    currentTime >= $0.startTime && currentTime < $0.startTime + $0.duration
+                }.map(\.pitch))
+            } else {
+                activeMIDINotes = []
+            }
         } else {
             midiPlaybackPercent = 0
+            activeMIDINotes = []
         }
     }
 
@@ -284,6 +304,15 @@ class ProjectState: ObservableObject {
         config.audioStartPercent = audioStartPercent
         config.midiStartPercent = midiStartPercent
 
+        config.pianoConfig = PianoConfig(
+            topLeftX: pianoTopLeft.x, topLeftY: pianoTopLeft.y,
+            topRightX: pianoTopRight.x, topRightY: pianoTopRight.y,
+            bottomLeftX: pianoBottomLeft.x, bottomLeftY: pianoBottomLeft.y,
+            bottomRightX: pianoBottomRight.x, bottomRightY: pianoBottomRight.y,
+            lowNote: pianoLowNote, highNote: pianoHighNote,
+            showOverlay: showPianoOverlay
+        )
+
         print("[midibars] save: videoBookmark=\(videoBookmark?.count ?? 0) bytes, audioBookmark=\(audioBookmark?.count ?? 0) bytes, midiBookmark=\(midiBookmark?.count ?? 0) bytes")
         print("[midibars] save: videoPath=\(videoURL?.path ?? "nil"), audioPath=\(audioURL?.path ?? "nil"), midiPath=\(midiURL?.path ?? "nil")")
     }
@@ -300,6 +329,16 @@ class ProjectState: ObservableObject {
         cropRight = CGFloat(config.cropRight)
         audioStartPercent = config.audioStartPercent
         midiStartPercent = config.midiStartPercent
+
+        if let piano = config.pianoConfig {
+            pianoTopLeft = CGPoint(x: piano.topLeftX, y: piano.topLeftY)
+            pianoTopRight = CGPoint(x: piano.topRightX, y: piano.topRightY)
+            pianoBottomLeft = CGPoint(x: piano.bottomLeftX, y: piano.bottomLeftY)
+            pianoBottomRight = CGPoint(x: piano.bottomRightX, y: piano.bottomRightY)
+            pianoLowNote = piano.lowNote
+            pianoHighNote = piano.highNote
+            showPianoOverlay = piano.showOverlay
+        }
 
         print("[midibars] restore: videoBookmark=\(config.videoBookmark?.count ?? 0) bytes, videoPath=\(config.videoPath ?? "nil")")
         print("[midibars] restore: audioBookmark=\(config.audioBookmark?.count ?? 0) bytes, audioPath=\(config.audioPath ?? "nil")")
@@ -356,6 +395,16 @@ class ProjectState: ObservableObject {
         isLoadingWaveform = false
         midiData = nil
         isLoadingMIDI = false
+
+        showPianoOverlay = false
+        isSettingPiano = false
+        pianoTopLeft = CGPoint(x: 0.1, y: 0.55)
+        pianoTopRight = CGPoint(x: 0.9, y: 0.55)
+        pianoBottomLeft = CGPoint(x: 0.05, y: 0.95)
+        pianoBottomRight = CGPoint(x: 0.95, y: 0.95)
+        pianoLowNote = 21
+        pianoHighNote = 108
+        activeMIDINotes = []
     }
 
     // MARK: - Bookmark Helpers

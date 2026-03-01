@@ -1,5 +1,19 @@
 import Foundation
 
+struct PianoConfig: Codable {
+    var topLeftX: Double
+    var topLeftY: Double
+    var topRightX: Double
+    var topRightY: Double
+    var bottomLeftX: Double
+    var bottomLeftY: Double
+    var bottomRightX: Double
+    var bottomRightY: Double
+    var lowNote: Int
+    var highNote: Int
+    var showOverlay: Bool
+}
+
 struct ProjectConfig: Codable, Identifiable {
     let id: UUID
     var name: String
@@ -26,6 +40,8 @@ struct ProjectConfig: Codable, Identifiable {
 
     var audioStartPercent: Double
     var midiStartPercent: Double
+
+    var pianoConfig: PianoConfig?
 
     init(name: String) {
         self.id = UUID()

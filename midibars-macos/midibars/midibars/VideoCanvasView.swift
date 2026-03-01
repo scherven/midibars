@@ -37,6 +37,10 @@ struct VideoCanvasView: View {
                     } else {
                         emptyState
                     }
+
+                    if project.showPianoOverlay || project.isSettingPiano {
+                        PianoOverlayView(project: project)
+                    }
                 }
                 .frame(width: canvasSize.width, height: canvasSize.height)
                 .clipped()

@@ -18,6 +18,10 @@ struct SidebarView: View {
                 transformSection
                 Divider()
                 cropSection
+                if project.midiURL != nil {
+                    Divider()
+                    pianoSection
+                }
                 Divider()
                 playbackSection
             }
@@ -223,6 +227,80 @@ struct SidebarView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Piano
+
+    private var pianoSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "Piano", icon: "pianokeys")
+
+            Toggle("Show Overlay", isOn: $project.showPianoOverlay)
+                .font(.caption)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+
+            Button {
+                project.isSettingPiano.toggle()
+                if project.isSettingPiano {
+                    project.showPianoOverlay = true
+                }
+            } label: {
+                Label(
+                    project.isSettingPiano ? "Done" : "Set Piano",
+                    systemImage: project.isSettingPiano ? "checkmark.circle" : "hand.point.up.left"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Text("Low:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("", value: $project.pianoLowNote, format: .number)
+                        .font(.caption)
+                        .monospacedDigit()
+                        .textFieldStyle(.plain)
+                        .frame(width: 30)
+                    Text(noteName(project.pianoLowNote))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                HStack(spacing: 4) {
+                    Text("High:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("", value: $project.pianoHighNote, format: .number)
+                        .font(.caption)
+                        .monospacedDigit()
+                        .textFieldStyle(.plain)
+                        .frame(width: 30)
+                    Text(noteName(project.pianoHighNote))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+//            if let midiData = project.midiData {
+//                Button("Fit to MIDI Range") {
+//                    project.pianoLowNote = Int(midiData.minPitch)
+//                    project.pianoHighNote = Int(midiData.maxPitch)
+//                }
+//                .font(.caption)
+//                .buttonStyle(.plain)
+//                .foregroundStyle(.secondary)
+//            }
+        }
+    }
+
+    private func noteName(_ pitch: Int) -> String {
+        let names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+        guard pitch >= 0, pitch < 128 else { return "?" }
+        let octave = (pitch / 12) - 1
+        return "\(names[pitch % 12])\(octave)"
     }
 
     // MARK: - Helpers
