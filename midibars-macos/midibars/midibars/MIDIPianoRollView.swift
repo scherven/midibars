@@ -14,11 +14,11 @@ struct MIDIPianoRollPanel: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer()
-                if let data = project.midiData {
-                    Text("\(data.notes.count) notes")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
+//                if let data = project.midiData {
+//                    Text("\(data.notes.count) notes")
+//                        .font(.caption2)
+//                        .foregroundStyle(.tertiary)
+//                }
             }
             .padding(.horizontal, 12)
             .padding(.top, 8)

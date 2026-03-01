@@ -19,6 +19,7 @@ struct VideoCanvasView: View {
 
                     if let player = project.player {
                         PlayerView(player: player)
+                            .rotationEffect(.degrees(project.videoRotation))
                             .mask {
                                 GeometryReader { maskGeo in
                                     Rectangle()
@@ -28,7 +29,6 @@ struct VideoCanvasView: View {
                                         .padding(.trailing, maskGeo.size.width * project.cropRight)
                                 }
                             }
-                            .rotationEffect(.degrees(project.videoRotation))
                             .scaleEffect(project.videoScale * gestureScale)
                             .offset(
                                 x: project.videoOffset.width + dragOffset.width,

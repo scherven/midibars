@@ -63,20 +63,43 @@ struct SidebarView: View {
             SectionHeader(title: "Transform", icon: "arrow.up.left.and.arrow.down.right")
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Scale: \(project.videoScale, specifier: "%.2f")x")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                HStack(spacing: 2) {
+                    Text("Scale:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("", value: $project.videoScale, formatter: {
+                        let f = NumberFormatter()
+                        f.maximumFractionDigits = 2
+                        f.minimumFractionDigits = 0
+                        return f
+                    }())
+                        .font(.caption)
+                        .monospacedDigit()
+                        .textFieldStyle(.plain)
+                        .frame(width: 40)
+                    Text("x")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Slider(value: $project.videoScale, in: 0.1...5.0)
                     .controlSize(.small)
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Rotation: \(Int(project.videoRotation))°")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                Slider(value: $project.videoRotation, in: 0...360, step: 1)
+                HStack(spacing: 2) {
+                    Text("Rotation:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("", value: $project.videoRotation, format: .number.precision(.fractionLength(0...1)))
+                        .font(.caption)
+                        .monospacedDigit()
+                        .textFieldStyle(.plain)
+                        .frame(width: 36)
+                    Text("°")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: $project.videoRotation, in: 0...360)
                     .controlSize(.small)
 
                 HStack(spacing: 4) {
@@ -120,6 +143,26 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Playback", icon: "play.circle")
 
+            if project.audioURL != nil {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 2) {
+                        Text("Start:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("", value: $project.audioStartPercent, format: .number.precision(.fractionLength(0...2)))
+                            .font(.caption)
+                            .monospacedDigit()
+                            .textFieldStyle(.plain)
+                            .frame(width: 48)
+                        Text("%")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $project.audioStartPercent, in: 0...100)
+                        .controlSize(.small)
+                }
+            }
+
             Button(action: project.togglePlayback) {
                 Label(
                     project.isPlaying ? "Pause" : "Play",
@@ -130,7 +173,7 @@ struct SidebarView: View {
             .controlSize(.large)
             .buttonStyle(.bordered)
             .keyboardShortcut(KeyEquivalent(" "), modifiers: [])
-            .disabled(project.player == nil)
+            .disabled(project.player == nil && project.audioPlayer == nil)
         }
     }
 
@@ -224,11 +267,21 @@ private struct CropSlider: View {
                 .foregroundStyle(.secondary)
             Slider(value: $value, in: 0...1.0)
                 .controlSize(.small)
-            Text("\(Int(value * 100))%")
+            TextField("", value: percentageBinding, format: .number.precision(.fractionLength(0...1)))
                 .font(.caption)
                 .monospacedDigit()
+                .textFieldStyle(.plain)
+                .frame(width: 32, alignment: .trailing)
+            Text("%")
+                .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(width: 30, alignment: .trailing)
         }
+    }
+
+    private var percentageBinding: Binding<Double> {
+        Binding(
+            get: { Double(value * 100) },
+            set: { value = CGFloat(min(max($0, 0), 100) / 100) }
+        )
     }
 }

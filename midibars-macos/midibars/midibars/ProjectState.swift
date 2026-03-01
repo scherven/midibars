@@ -19,6 +19,12 @@ class ProjectState: ObservableObject {
     @Published var player: AVPlayer?
     @Published var isPlaying = false
 
+    @Published var audioPlayer: AVAudioPlayer?
+    @Published var audioStartPercent: Double = 0.0
+    @Published var playbackPercent: Double = 0.0
+
+    private var playbackTimer: Timer?
+
     @Published var waveformSamples: [Float] = []
     @Published var isLoadingWaveform = false
 
@@ -44,6 +50,13 @@ class ProjectState: ObservableObject {
         audioURL = url
         isLoadingWaveform = true
         waveformSamples = []
+
+        do {
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.prepareToPlay()
+        } catch {
+            audioPlayer = nil
+        }
 
         let expectedURL = url
         Task.detached {
@@ -74,14 +87,51 @@ class ProjectState: ObservableObject {
     }
 
     func togglePlayback() {
-        guard let player else { return }
-        player.isMuted = true
+        guard player != nil || audioPlayer != nil else { return }
+
         if isPlaying {
-            player.pause()
+            player?.pause()
+            audioPlayer?.pause()
+            stopPlaybackTimer()
         } else {
-            player.play()
+            player?.isMuted = true
+            player?.play()
+            if let audioPlayer, audioPlayer.duration > 0 {
+                let clampedPercent = min(max(audioStartPercent, 0), 100)
+                audioPlayer.currentTime = audioPlayer.duration * (clampedPercent / 100.0)
+                audioPlayer.play()
+            }
+            startPlaybackTimer()
         }
         isPlaying.toggle()
+    }
+
+    private func startPlaybackTimer() {
+        playbackTimer?.invalidate()
+        playbackTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updatePlaybackPosition()
+            }
+        }
+    }
+
+    private func stopPlaybackTimer() {
+        playbackTimer?.invalidate()
+        playbackTimer = nil
+    }
+
+    private func updatePlaybackPosition() {
+        guard let audioPlayer, audioPlayer.duration > 0 else {
+            playbackPercent = 0
+            return
+        }
+        playbackPercent = (audioPlayer.currentTime / audioPlayer.duration) * 100.0
+
+        if !audioPlayer.isPlaying && isPlaying {
+            player?.pause()
+            stopPlaybackTimer()
+            isPlaying = false
+        }
     }
 
     func resetTransform() {
