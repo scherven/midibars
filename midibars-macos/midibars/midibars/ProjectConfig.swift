@@ -10,6 +10,10 @@ struct ProjectConfig: Codable, Identifiable {
     var audioBookmark: Data?
     var midiBookmark: Data?
 
+    var videoPath: String?
+    var audioPath: String?
+    var midiPath: String?
+
     var videoOffsetWidth: Double
     var videoOffsetHeight: Double
     var videoScale: Double
@@ -21,6 +25,7 @@ struct ProjectConfig: Codable, Identifiable {
     var cropRight: Double
 
     var audioStartPercent: Double
+    var midiStartPercent: Double
 
     init(name: String) {
         self.id = UUID()
@@ -36,11 +41,12 @@ struct ProjectConfig: Codable, Identifiable {
         self.cropLeft = 0
         self.cropRight = 0
         self.audioStartPercent = 0
+        self.midiStartPercent = 0
     }
 
-    var hasVideo: Bool { videoBookmark != nil }
-    var hasAudio: Bool { audioBookmark != nil }
-    var hasMIDI: Bool { midiBookmark != nil }
+    var hasVideo: Bool { videoBookmark != nil || videoPath != nil }
+    var hasAudio: Bool { audioBookmark != nil || audioPath != nil }
+    var hasMIDI: Bool { midiBookmark != nil || midiPath != nil }
 }
 
 @MainActor
@@ -78,8 +84,16 @@ class ProjectStore: ObservableObject {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = .prettyPrinted
 
-        if let data = try? encoder.encode(config) {
-            try? data.write(to: fileURL(for: config.id))
+        do {
+            let data = try encoder.encode(config)
+            let url = fileURL(for: config.id)
+            try data.write(to: url)
+            print("[midibars] ProjectStore saved \(config.name) to \(url.path) (\(data.count) bytes)")
+            print("[midibars]   videoBookmark: \(config.videoBookmark?.count ?? 0) bytes, videoPath: \(config.videoPath ?? "nil")")
+            print("[midibars]   audioBookmark: \(config.audioBookmark?.count ?? 0) bytes, audioPath: \(config.audioPath ?? "nil")")
+            print("[midibars]   midiBookmark: \(config.midiBookmark?.count ?? 0) bytes, midiPath: \(config.midiPath ?? "nil")")
+        } catch {
+            print("[midibars] ProjectStore save FAILED for \(config.name): \(error)")
         }
 
         if let index = projects.firstIndex(where: { $0.id == config.id }) {

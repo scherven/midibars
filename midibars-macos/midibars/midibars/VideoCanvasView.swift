@@ -40,6 +40,7 @@ struct VideoCanvasView: View {
                 }
                 .frame(width: canvasSize.width, height: canvasSize.height)
                 .clipped()
+                .contentShape(Rectangle())
                 .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
                 .gesture(dragGesture)
                 .gesture(magnifyGesture)

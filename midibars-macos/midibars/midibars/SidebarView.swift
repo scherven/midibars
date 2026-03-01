@@ -202,6 +202,26 @@ struct SidebarView: View {
                         .controlSize(.small)
                 }
             }
+
+            if project.midiURL != nil {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 2) {
+                        Text("MIDI start:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("", value: $project.midiStartPercent, format: .number.precision(.fractionLength(0...2)))
+                            .font(.caption)
+                            .monospacedDigit()
+                            .textFieldStyle(.plain)
+                            .frame(width: 48)
+                        Text("%")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $project.midiStartPercent, in: 0...100)
+                        .controlSize(.small)
+                }
+            }
         }
     }
 

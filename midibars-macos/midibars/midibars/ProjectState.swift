@@ -27,6 +27,9 @@ class ProjectState: ObservableObject {
     @Published var audioStartPercent: Double = 0.0
     @Published var playbackPercent: Double = 0.0
 
+    @Published var midiStartPercent: Double = 0.0
+    @Published var midiPlaybackPercent: Double = 0.0
+
     @Published var videoPercent: Double = 0.0
     @Published var videoDuration: Double = 0
     @Published var isSeeking = false
@@ -52,12 +55,9 @@ class ProjectState: ObservableObject {
     // MARK: - Media Loading
 
     func loadVideo(url: URL) {
-        _ = url.startAccessingSecurityScopedResource()
-        videoBookmark = try? url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
+        let accessed = url.startAccessingSecurityScopedResource()
+        print("[midibars] loadVideo: startAccessing=\(accessed) url=\(url.path)")
+        videoBookmark = createBookmark(for: url)
         videoURL = url
         let item = AVPlayerItem(url: url)
         if let player {
@@ -79,12 +79,9 @@ class ProjectState: ObservableObject {
     }
 
     func loadAudio(url: URL) {
-        _ = url.startAccessingSecurityScopedResource()
-        audioBookmark = try? url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
+        let accessed = url.startAccessingSecurityScopedResource()
+        print("[midibars] loadAudio: startAccessing=\(accessed) url=\(url.path)")
+        audioBookmark = createBookmark(for: url)
         audioURL = url
         isLoadingWaveform = true
         waveformSamples = []
@@ -108,12 +105,9 @@ class ProjectState: ObservableObject {
     }
 
     func loadMIDI(url: URL) {
-        _ = url.startAccessingSecurityScopedResource()
-        midiBookmark = try? url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
+        let accessed = url.startAccessingSecurityScopedResource()
+        print("[midibars] loadMIDI: startAccessing=\(accessed) url=\(url.path)")
+        midiBookmark = createBookmark(for: url)
         midiURL = url
         isLoadingMIDI = true
         midiData = nil
@@ -236,6 +230,21 @@ class ProjectState: ObservableObject {
         } else {
             playbackPercent = 0
         }
+
+        if let midiData, midiData.duration > 0 {
+            var videoCurrentTime: Double = 0
+            if let player, let item = player.currentItem {
+                let d = CMTimeGetSeconds(item.duration)
+                if d.isFinite && d > 0 {
+                    videoCurrentTime = CMTimeGetSeconds(player.currentTime())
+                }
+            }
+            let midiStartTime = midiData.duration * (min(max(midiStartPercent, 0), 100) / 100.0)
+            midiPlaybackPercent = ((midiStartTime + videoCurrentTime) / midiData.duration) * 100.0
+            midiPlaybackPercent = min(max(midiPlaybackPercent, 0), 100)
+        } else {
+            midiPlaybackPercent = 0
+        }
     }
 
     private func formatTime(_ seconds: Double) -> String {
@@ -261,6 +270,9 @@ class ProjectState: ObservableObject {
         config.videoBookmark = videoBookmark
         config.audioBookmark = audioBookmark
         config.midiBookmark = midiBookmark
+        config.videoPath = videoURL?.path
+        config.audioPath = audioURL?.path
+        config.midiPath = midiURL?.path
         config.videoOffsetWidth = Double(videoOffset.width)
         config.videoOffsetHeight = Double(videoOffset.height)
         config.videoScale = Double(videoScale)
@@ -270,6 +282,10 @@ class ProjectState: ObservableObject {
         config.cropLeft = Double(cropLeft)
         config.cropRight = Double(cropRight)
         config.audioStartPercent = audioStartPercent
+        config.midiStartPercent = midiStartPercent
+
+        print("[midibars] save: videoBookmark=\(videoBookmark?.count ?? 0) bytes, audioBookmark=\(audioBookmark?.count ?? 0) bytes, midiBookmark=\(midiBookmark?.count ?? 0) bytes")
+        print("[midibars] save: videoPath=\(videoURL?.path ?? "nil"), audioPath=\(audioURL?.path ?? "nil"), midiPath=\(midiURL?.path ?? "nil")")
     }
 
     func restore(from config: ProjectConfig) {
@@ -283,15 +299,20 @@ class ProjectState: ObservableObject {
         cropLeft = CGFloat(config.cropLeft)
         cropRight = CGFloat(config.cropRight)
         audioStartPercent = config.audioStartPercent
+        midiStartPercent = config.midiStartPercent
 
-        if let bookmark = config.videoBookmark, let url = resolveBookmark(bookmark) {
-            loadVideoFromBookmark(url: url, bookmark: bookmark)
+        print("[midibars] restore: videoBookmark=\(config.videoBookmark?.count ?? 0) bytes, videoPath=\(config.videoPath ?? "nil")")
+        print("[midibars] restore: audioBookmark=\(config.audioBookmark?.count ?? 0) bytes, audioPath=\(config.audioPath ?? "nil")")
+        print("[midibars] restore: midiBookmark=\(config.midiBookmark?.count ?? 0) bytes, midiPath=\(config.midiPath ?? "nil")")
+
+        restoreFile(bookmark: config.videoBookmark, path: config.videoPath) { url, bookmark in
+            self.loadVideoFromBookmark(url: url, bookmark: bookmark)
         }
-        if let bookmark = config.audioBookmark, let url = resolveBookmark(bookmark) {
-            loadAudioFromBookmark(url: url, bookmark: bookmark)
+        restoreFile(bookmark: config.audioBookmark, path: config.audioPath) { url, bookmark in
+            self.loadAudioFromBookmark(url: url, bookmark: bookmark)
         }
-        if let bookmark = config.midiBookmark, let url = resolveBookmark(bookmark) {
-            loadMIDIFromBookmark(url: url, bookmark: bookmark)
+        restoreFile(bookmark: config.midiBookmark, path: config.midiPath) { url, bookmark in
+            self.loadMIDIFromBookmark(url: url, bookmark: bookmark)
         }
     }
 
@@ -324,7 +345,9 @@ class ProjectState: ObservableObject {
         cropRight = 0
 
         audioStartPercent = 0
+        midiStartPercent = 0
         playbackPercent = 0
+        midiPlaybackPercent = 0
         videoPercent = 0
         videoDuration = 0
         isSeeking = false
@@ -337,20 +360,86 @@ class ProjectState: ObservableObject {
 
     // MARK: - Bookmark Helpers
 
+    private func createBookmark(for url: URL) -> Data? {
+        do {
+            let bookmark = try url.bookmarkData(
+                options: .withSecurityScope,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            print("[midibars] bookmark created: \(bookmark.count) bytes for \(url.lastPathComponent)")
+            return bookmark
+        } catch {
+            print("[midibars] bookmark creation FAILED for \(url.path): \(error)")
+            // Fall back to a minimal bookmark without security scope
+            do {
+                let bookmark = try url.bookmarkData(
+                    options: .minimalBookmark,
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                )
+                print("[midibars] minimal bookmark created: \(bookmark.count) bytes for \(url.lastPathComponent)")
+                return bookmark
+            } catch {
+                print("[midibars] minimal bookmark also FAILED: \(error)")
+                return nil
+            }
+        }
+    }
+
     private func resolveBookmark(_ data: Data) -> URL? {
         var isStale = false
-        guard let url = try? URL(
-            resolvingBookmarkDataOf: data,
-            options: .withSecurityScope,
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
-        ) else { return nil }
-        _ = url.startAccessingSecurityScopedResource()
-        return url
+        do {
+            let url = try URL(
+                resolvingBookmarkData: data,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+            let accessed = url.startAccessingSecurityScopedResource()
+            print("[midibars] bookmark resolved: stale=\(isStale) accessed=\(accessed) url=\(url.path)")
+            if isStale {
+                videoBookmark = createBookmark(for: url)
+            }
+            return url
+        } catch {
+            print("[midibars] security-scoped bookmark resolution FAILED: \(error)")
+            // Try without security scope
+            do {
+                let url = try URL(
+                    resolvingBookmarkData: data,
+                    options: [],
+                    relativeTo: nil,
+                    bookmarkDataIsStale: &isStale
+                )
+                print("[midibars] plain bookmark resolved: stale=\(isStale) url=\(url.path)")
+                return url
+            } catch {
+                print("[midibars] plain bookmark resolution also FAILED: \(error)")
+                return nil
+            }
+        }
+    }
+
+    private func restoreFile(bookmark: Data?, path: String?, load: (URL, Data) -> Void) {
+        if let bookmark, let url = resolveBookmark(bookmark) {
+            load(url, bookmark)
+            return
+        }
+        if let path {
+            let url = URL(fileURLWithPath: path)
+            if FileManager.default.isReadableFile(atPath: path) {
+                print("[midibars] falling back to path: \(path)")
+                load(url, Data())
+                return
+            } else {
+                print("[midibars] path not readable: \(path)")
+            }
+        }
     }
 
     private func loadVideoFromBookmark(url: URL, bookmark: Data) {
-        videoBookmark = bookmark
+        videoBookmark = bookmark.isEmpty ? nil : bookmark
         videoURL = url
         let item = AVPlayerItem(url: url)
         if let player {
@@ -372,7 +461,7 @@ class ProjectState: ObservableObject {
     }
 
     private func loadAudioFromBookmark(url: URL, bookmark: Data) {
-        audioBookmark = bookmark
+        audioBookmark = bookmark.isEmpty ? nil : bookmark
         audioURL = url
         isLoadingWaveform = true
         waveformSamples = []
@@ -396,7 +485,7 @@ class ProjectState: ObservableObject {
     }
 
     private func loadMIDIFromBookmark(url: URL, bookmark: Data) {
-        midiBookmark = bookmark
+        midiBookmark = bookmark.isEmpty ? nil : bookmark
         midiURL = url
         isLoadingMIDI = true
         midiData = nil

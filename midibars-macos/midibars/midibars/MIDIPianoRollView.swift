@@ -28,9 +28,23 @@ struct MIDIPianoRollPanel: View {
                     .font(.caption)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let midiData = project.midiData {
-                PianoRollView(data: midiData)
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 8)
+                GeometryReader { geo in
+                    PianoRollView(
+                        data: midiData,
+                        startPercent: project.midiStartPercent,
+                        playbackPercent: project.midiPlaybackPercent
+                    )
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                            .onEnded { value in
+                                let percent = Double(value.location.x / geo.size.width) * 100.0
+                                project.midiStartPercent = min(max(percent, 0), 100)
+                            }
+                    )
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -40,6 +54,8 @@ struct MIDIPianoRollPanel: View {
 
 struct PianoRollView: View {
     let data: MIDIData
+    var startPercent: Double = 0
+    var playbackPercent: Double = 0
 
     var body: some View {
         Canvas { context, size in
@@ -51,6 +67,18 @@ struct PianoRollView: View {
 
             drawOctaveLines(context: context, size: size, pitchSpan: pitchSpan, noteHeight: noteHeight)
             drawNotes(context: context, size: size, noteHeight: noteHeight, timeScale: timeScale)
+
+            let startX = size.width * CGFloat(startPercent / 100.0)
+            var startLine = Path()
+            startLine.move(to: CGPoint(x: startX, y: 0))
+            startLine.addLine(to: CGPoint(x: startX, y: size.height))
+            context.stroke(startLine, with: .color(.red), lineWidth: 1.5)
+
+            let playX = size.width * CGFloat(playbackPercent / 100.0)
+            var playLine = Path()
+            playLine.move(to: CGPoint(x: playX, y: 0))
+            playLine.addLine(to: CGPoint(x: playX, y: size.height))
+            context.stroke(playLine, with: .color(.green), lineWidth: 1.5)
         }
     }
 
