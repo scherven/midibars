@@ -7,6 +7,8 @@ struct PianoOverlayView: View {
 
     private let blackKeyHeightRatio: CGFloat = 0.62
     private let blackKeyWidthRatio: Double = 0.55
+    private let barLeadTime: Double = 2.0
+    private let barMinHeight: CGFloat = 8
 
     var body: some View {
         GeometryReader { geo in
@@ -24,6 +26,15 @@ struct PianoOverlayView: View {
                     let blackNotes = Self.blackNotes(low: project.pianoLowNote, high: project.pianoHighNote)
                     let whiteIndexMap = Dictionary(uniqueKeysWithValues: whiteNotes.enumerated().map { ($1, $0) })
 
+                    // 1) MIDI dropping bars (behind the piano)
+                    if !project.isSettingPiano {
+                        drawMidiBars(
+                            context: context, tl: tl, tr: tr,
+                            edges: edges, whiteIndexMap: whiteIndexMap
+                        )
+                    }
+
+                    // 2) Semi-transparent fill when setting piano position
                     if project.isSettingPiano {
                         var fill = Path()
                         fill.move(to: tl)
@@ -34,7 +45,7 @@ struct PianoOverlayView: View {
                         context.fill(fill, with: .color(.white.opacity(0.08)))
                     }
 
-                    // White key separator lines
+                    // 3) White key separator lines
                     let edgeOpacity: Double = project.isAdjustingKeys ? 0.5 : 0.3
                     for i in 0...whiteNotes.count {
                         let f = CGFloat(edges[i])
@@ -46,20 +57,7 @@ struct PianoOverlayView: View {
                         context.stroke(line, with: .color(.white.opacity(edgeOpacity)), lineWidth: 0.5)
                     }
 
-                    // Active white note fills
-                    if !project.isSettingPiano {
-                        for (i, note) in whiteNotes.enumerated() {
-                            guard project.activeMIDINotes.contains(UInt8(note)) else { continue }
-                            let path = quadPath(
-                                leftF: edges[i], rightF: edges[i + 1],
-                                topG: 0, bottomG: 1,
-                                tl: tl, tr: tr, bl: bl, br: br
-                            )
-                            context.fill(path, with: .color(.cyan.opacity(0.6)))
-                        }
-                    }
-
-                    // Black key bodies
+                    // 4) Black key bodies
                     for note in blackNotes {
                         let (lf, rf) = blackKeyFracs(note: note, whiteIndexMap: whiteIndexMap, edges: edges)
                         guard lf < rf else { continue }
@@ -72,22 +70,7 @@ struct PianoOverlayView: View {
                         context.stroke(path, with: .color(.white.opacity(0.3)), lineWidth: 0.5)
                     }
 
-                    // Active black note fills
-                    if !project.isSettingPiano {
-                        for note in blackNotes {
-                            guard project.activeMIDINotes.contains(UInt8(note)) else { continue }
-                            let (lf, rf) = blackKeyFracs(note: note, whiteIndexMap: whiteIndexMap, edges: edges)
-                            guard lf < rf else { continue }
-                            let path = quadPath(
-                                leftF: lf, rightF: rf,
-                                topG: 0, bottomG: Double(blackKeyHeightRatio),
-                                tl: tl, tr: tr, bl: bl, br: br
-                            )
-                            context.fill(path, with: .color(.blue.opacity(0.7)))
-                        }
-                    }
-
-                    // Outer border
+                    // 5) Outer border
                     var outline = Path()
                     outline.move(to: tl)
                     outline.addLine(to: tr)
@@ -96,14 +79,14 @@ struct PianoOverlayView: View {
                     outline.closeSubpath()
                     context.stroke(outline, with: .color(.white.opacity(0.6)), lineWidth: 1.5)
 
-                    // Corner handles
+                    // 6) Corner handles
                     if project.isSettingPiano {
                         for point in [tl, tr, bl, br] {
                             drawHandle(context: context, at: point)
                         }
                     }
 
-                    // Edge adjustment: highlight active edge
+                    // 7) Edge adjustment: highlight active edge
                     if project.isAdjustingKeys, let idx = activeEdge, idx > 0, idx < edges.count - 1 {
                         let f = CGFloat(edges[idx])
                         let top = lerp(tl, tr, t: f)
@@ -167,6 +150,95 @@ struct PianoOverlayView: View {
         .allowsHitTesting(project.isSettingPiano || project.isAdjustingKeys)
     }
 
+    // MARK: - MIDI Bars
+
+    private func drawMidiBars(
+        context: GraphicsContext,
+        tl: CGPoint, tr: CGPoint,
+        edges: [Double],
+        whiteIndexMap: [Int: Int]
+    ) {
+        guard let midiData = project.midiData, midiData.duration > 0 else { return }
+
+        let currentTime = midiData.duration * (project.midiPlaybackPercent / 100.0)
+
+        // Perpendicular direction pointing "up" from the piano top edge
+        let dx = tr.x - tl.x
+        let dy = tr.y - tl.y
+        let lineLen = hypot(dx, dy)
+        guard lineLen > 1 else { return }
+
+        var upX = dy / lineLen
+        var upY = -dx / lineLen
+        if upY > 0 { upX = -upX; upY = -upY }
+
+        // Spawn distance: how far bars travel from spawn point to the piano top edge.
+        // Use the distance from the piano top-edge midpoint to the top of the canvas.
+        let midY = (tl.y + tr.y) / 2
+        let spawnDist: CGFloat = abs(upY) > 0.001 ? abs(midY / upY) : midY
+        guard spawnDist > 1 else { return }
+
+        let speed = spawnDist / CGFloat(barLeadTime)
+
+        for note in midiData.notes {
+            let start = note.startTime
+            let dur = note.duration
+            let pitch = Int(note.pitch)
+
+            let noteH = max(barMinHeight, CGFloat(dur) * speed)
+            let effectiveEnd = start + max(dur, Double(noteH / speed))
+
+            guard currentTime >= start - barLeadTime, currentTime <= effectiveEnd else { continue }
+            guard pitch >= project.pianoLowNote, pitch <= project.pianoHighNote else { continue }
+
+            // Horizontal fractions for this key
+            let lf: Double
+            let rf: Double
+            if Self.isBlack(pitch) {
+                let fracs = blackKeyFracs(note: pitch, whiteIndexMap: whiteIndexMap, edges: edges)
+                guard fracs.0 < fracs.1 else { continue }
+                (lf, rf) = fracs
+            } else {
+                guard let idx = whiteIndexMap[pitch] else { continue }
+                lf = edges[idx]
+                rf = edges[idx + 1]
+            }
+
+            let pL = lerp(tl, tr, t: CGFloat(lf))
+            let pR = lerp(tl, tr, t: CGFloat(rf))
+
+            let perpOff: CGFloat
+            let curH: CGFloat
+
+            if currentTime < start {
+                let progress = CGFloat((currentTime - (start - barLeadTime)) / barLeadTime)
+                perpOff = spawnDist * (1 - progress)
+                curH = noteH
+            } else {
+                let elapsed = CGFloat(currentTime - start)
+                let overshoot = speed * elapsed
+                perpOff = 0
+                curH = max(0, noteH - overshoot)
+            }
+
+            guard curH > 0.5 else { continue }
+
+            let bL = CGPoint(x: pL.x + perpOff * upX, y: pL.y + perpOff * upY)
+            let bR = CGPoint(x: pR.x + perpOff * upX, y: pR.y + perpOff * upY)
+            let barTL = CGPoint(x: bL.x + curH * upX, y: bL.y + curH * upY)
+            let barTR = CGPoint(x: bR.x + curH * upX, y: bR.y + curH * upY)
+
+            var path = Path()
+            path.move(to: bL)
+            path.addLine(to: bR)
+            path.addLine(to: barTR)
+            path.addLine(to: barTL)
+            path.closeSubpath()
+
+            context.fill(path, with: .color(.red.opacity(0.8)))
+        }
+    }
+
     // MARK: - Key Layout
 
     private func effectiveEdges() -> [Double] {
@@ -183,16 +255,12 @@ struct PianoOverlayView: View {
     }
 
     static func whiteNotes(low: Int, high: Int) -> [Int] {
-        if (high < low) {
-            return []
-        }
+        guard high >= low else { return [] }
         return (low...high).filter { !isBlack($0) }
     }
 
     static func blackNotes(low: Int, high: Int) -> [Int] {
-        if (high < low) {
-            return []
-        }
+        guard high >= low else { return [] }
         return (low...high).filter { isBlack($0) }
     }
 
