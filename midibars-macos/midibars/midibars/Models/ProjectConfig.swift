@@ -43,6 +43,7 @@ struct ProjectConfig: Codable, Identifiable {
     var midiStartPercent: Double
 
     var pianoConfig: PianoConfig?
+    var particleConfig: ParticleConfiguration?
 
     init(name: String) {
         self.id = UUID()

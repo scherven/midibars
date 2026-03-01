@@ -35,3 +35,37 @@ func quadrilateralPath(
     path.closeSubpath()
     return path
 }
+
+// MARK: - Key Position on Piano Top Edge
+
+func keyFractionOnTopEdge(
+    pitch: Int,
+    edges: [Double],
+    whiteIndexMap: [Int: Int],
+    blackKeyWidthRatio: Double
+) -> CGFloat? {
+    if isBlackKey(pitch) {
+        guard let leftIdx = whiteIndexMap[pitch - 1],
+              leftIdx + 2 < edges.count else { return nil }
+        let boundary = edges[leftIdx + 1]
+        let leftWidth = edges[leftIdx + 1] - edges[leftIdx]
+        let rightWidth = edges[leftIdx + 2] - edges[leftIdx + 1]
+        let avgWidth = (leftWidth + rightWidth) / 2
+        let bw = avgWidth * blackKeyWidthRatio
+        let lf = boundary - bw / 2
+        let rf = boundary + bw / 2
+        guard lf < rf else { return nil }
+        return CGFloat((lf + rf) / 2)
+    } else {
+        guard let idx = whiteIndexMap[pitch], idx + 1 < edges.count else { return nil }
+        return CGFloat((edges[idx] + edges[idx + 1]) / 2)
+    }
+}
+
+func pianoTopEdgePoint(
+    fraction: CGFloat,
+    topLeft: CGPoint,
+    topRight: CGPoint
+) -> CGPoint {
+    lerp(topLeft, topRight, t: fraction)
+}

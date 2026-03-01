@@ -39,6 +39,10 @@ struct VideoCanvasView: View {
                     if project.midiData != nil || project.showPianoOverlay || project.isSettingPiano || project.isAdjustingKeys {
                         PianoOverlayView(project: project)
                     }
+
+                    if project.particleConfig.enabled {
+                        ParticleOverlayView(scene: project.particleScene)
+                    }
                 }
                 .frame(width: canvasSize.width, height: canvasSize.height)
                 .clipped()

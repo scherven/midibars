@@ -44,7 +44,7 @@ struct PianoRollView: View {
 
             let insetY = noteHeight * 0.08
             let rect = CGRect(x: x, y: y + insetY, width: w, height: noteHeight - insetY * 2)
-            let radius = min(noteHeight * 0.15, 2)
+            let radius = min(noteHeight * 0.15, 2.0)
 
             let velocity = Double(note.velocity) / 127.0
             let opacity = 0.35 + 0.65 * velocity

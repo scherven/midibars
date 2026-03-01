@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import SpriteKit
 
 @MainActor
 class ProjectState: ObservableObject {
@@ -53,6 +54,13 @@ class ProjectState: ObservableObject {
     @Published var pianoHighNote: Int = 108
     @Published var pianoWhiteKeyEdges: [Double] = []
     @Published var activeMIDINotes: Set<UInt8> = []
+
+    // MARK: - Particles
+
+    @Published var particleConfig = ParticleConfiguration()
+    let particleScene = PianoParticleScene()
+    private var previouslyActiveNotes: Set<UInt8> = []
+    private let blackKeyWidthRatio: Double = 0.55
 
     let canvasAspectRatio: CGFloat = 16.0 / 9.0
 
@@ -263,18 +271,68 @@ class ProjectState: ObservableObject {
             let midiStartTime = midiData.duration * (clampedPercent(midiStartPercent) / 100.0)
             midiPlaybackPercent = clampedPercent(((midiStartTime + videoCurrentTime) / midiData.duration) * 100.0)
 
+            let currentTime = midiData.duration * (midiPlaybackPercent / 100.0)
+            let newActive: Set<UInt8> = Set(midiData.notes.filter {
+                currentTime >= $0.startTime && currentTime < $0.startTime + $0.duration
+            }.map(\.pitch))
+
             if showPianoOverlay {
-                let currentTime = midiData.duration * (midiPlaybackPercent / 100.0)
-                activeMIDINotes = Set(midiData.notes.filter {
-                    currentTime >= $0.startTime && currentTime < $0.startTime + $0.duration
-                }.map(\.pitch))
+                activeMIDINotes = newActive
             } else {
                 activeMIDINotes = []
             }
+
+            emitParticlesForNewHits(newActive)
         } else {
             midiPlaybackPercent = 0
             activeMIDINotes = []
+            previouslyActiveNotes = []
         }
+    }
+
+    // MARK: - Particle Hit Detection
+
+    private func emitParticlesForNewHits(_ currentActive: Set<UInt8>) {
+        guard particleConfig.enabled else {
+            previouslyActiveNotes = currentActive
+            return
+        }
+
+        let newHits = currentActive.subtracting(previouslyActiveNotes)
+        previouslyActiveNotes = currentActive
+
+        guard !newHits.isEmpty else { return }
+
+        particleScene.particleConfig = particleConfig
+
+        let whites = whiteNotes(low: pianoLowNote, high: pianoHighNote)
+        let whiteIndexMap = Dictionary(uniqueKeysWithValues: whites.enumerated().map { ($1, $0) })
+        let edges = effectiveEdgesForParticles(whiteCount: whites.count)
+
+        for pitch in newHits {
+            guard let fraction = keyFractionOnTopEdge(
+                pitch: Int(pitch),
+                edges: edges,
+                whiteIndexMap: whiteIndexMap,
+                blackKeyWidthRatio: blackKeyWidthRatio
+            ) else { continue }
+
+            let normalizedPoint = pianoTopEdgePoint(
+                fraction: fraction,
+                topLeft: pianoTopLeft,
+                topRight: pianoTopRight
+            )
+
+            let color: NSColor = .red
+            particleScene.emitParticles(atNormalized: normalizedPoint, color: color)
+        }
+    }
+
+    private func effectiveEdgesForParticles(whiteCount: Int) -> [Double] {
+        if pianoWhiteKeyEdges.count == whiteCount + 1 {
+            return pianoWhiteKeyEdges
+        }
+        return defaultPianoEdges(whiteKeyCount: whiteCount)
     }
 
     func resetTransform() {
@@ -324,6 +382,7 @@ class ProjectState: ObservableObject {
             showOverlay: showPianoOverlay,
             keyEdges: pianoWhiteKeyEdges.isEmpty ? nil : pianoWhiteKeyEdges
         )
+        config.particleConfig = particleConfig
     }
 
     func restore(from config: ProjectConfig) {
@@ -348,6 +407,10 @@ class ProjectState: ObservableObject {
             pianoHighNote = piano.highNote
             showPianoOverlay = piano.showOverlay
             pianoWhiteKeyEdges = piano.keyEdges ?? []
+        }
+
+        if let particles = config.particleConfig {
+            particleConfig = particles
         }
 
         restoreFile(bookmark: config.videoBookmark, path: config.videoPath) { url, bookmark in
@@ -416,6 +479,8 @@ class ProjectState: ObservableObject {
         pianoHighNote = 108
         pianoWhiteKeyEdges = []
         activeMIDINotes = []
+        previouslyActiveNotes = []
+        particleScene.removeAllParticles()
     }
 
     // MARK: - Bookmark Helpers
