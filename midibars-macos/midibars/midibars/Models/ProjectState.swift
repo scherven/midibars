@@ -55,9 +55,16 @@ class ProjectState: ObservableObject {
     @Published var pianoWhiteKeyEdges: [Double] = []
     @Published var activeMIDINotes: Set<UInt8> = []
 
+    @Published var barConfig = BarConfiguration()
+
     // MARK: - Particles
 
     @Published var particleConfig = ParticleConfiguration()
+
+    // MARK: - Text overlays (titles)
+
+    @Published var textOverlays: [TextOverlayItem] = []
+    @Published var selectedTextOverlayID: UUID?
     let particleScene = PianoParticleScene()
     private var previouslyActiveNotes: Set<UInt8> = []
     private let blackKeyWidthRatio: Double = 0.55
@@ -396,6 +403,8 @@ class ProjectState: ObservableObject {
             keyEdges: pianoWhiteKeyEdges.isEmpty ? nil : pianoWhiteKeyEdges
         )
         config.particleConfig = particleConfig
+        config.barConfig = barConfig
+        config.textOverlays = textOverlays.isEmpty ? nil : textOverlays
     }
 
     func restore(from config: ProjectConfig) {
@@ -424,6 +433,12 @@ class ProjectState: ObservableObject {
 
         if let particles = config.particleConfig {
             particleConfig = particles
+        }
+        if let bar = config.barConfig {
+            barConfig = bar
+        }
+        if let overlays = config.textOverlays {
+            textOverlays = overlays
         }
 
         restoreFile(bookmark: config.videoBookmark, path: config.videoPath) { url, bookmark in
@@ -494,6 +509,9 @@ class ProjectState: ObservableObject {
         activeMIDINotes = []
         previouslyActiveNotes = []
         particleScene.removeAllParticles()
+        barConfig = BarConfiguration()
+        textOverlays = []
+        selectedTextOverlayID = nil
     }
 
     // MARK: - Bookmark Helpers

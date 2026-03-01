@@ -55,7 +55,7 @@ struct PianoOverlayView: View {
                             var line = Path()
                             line.move(to: top)
                             line.addLine(to: bot)
-                            context.stroke(line, with: .color(.white.opacity(edgeOpacity)), lineWidth: 0.5)
+                            context.stroke(line, with: .color(.black.opacity(edgeOpacity)), lineWidth: 0.5)
                         }
 
                         for note in blacks {

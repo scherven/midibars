@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PianoRollView: View {
     let data: MIDIData
+    var barConfig: BarConfiguration = BarConfiguration()
     var startPercent: Double = 0
     var playbackPercent: Double = 0
 
@@ -35,6 +36,12 @@ struct PianoRollView: View {
 
     private func drawNotes(context: GraphicsContext, size: CGSize, noteHeight: CGFloat, timeScale: Double) {
         let basePitch = Int(data.minPitch)
+        let radius = CGFloat(barConfig.cornerRadius)
+        let barColor = Color(
+            red: barConfig.colorRed,
+            green: barConfig.colorGreen,
+            blue: barConfig.colorBlue
+        )
 
         for note in data.notes {
             let x = note.startTime * timeScale
@@ -44,13 +51,13 @@ struct PianoRollView: View {
 
             let insetY = noteHeight * 0.08
             let rect = CGRect(x: x, y: y + insetY, width: w, height: noteHeight - insetY * 2)
-            let radius = min(noteHeight * 0.15, 2.0)
+            let noteRadius = radius >= 0 ? min(radius, noteHeight * 0.5) : min(noteHeight * 0.15, 2.0)
 
             let velocity = Double(note.velocity) / 127.0
             let opacity = 0.35 + 0.65 * velocity
 
-            let shape = RoundedRectangle(cornerRadius: radius)
-            context.fill(shape.path(in: rect), with: .color(.accentColor.opacity(opacity)))
+            let shape = RoundedRectangle(cornerRadius: noteRadius)
+            context.fill(shape.path(in: rect), with: .color(barColor.opacity(opacity)))
         }
     }
 }

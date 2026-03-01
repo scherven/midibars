@@ -43,6 +43,10 @@ struct VideoCanvasView: View {
                     if project.particleConfig.enabled {
                         ParticleOverlayView(scene: project.particleScene)
                     }
+
+                    if !project.textOverlays.isEmpty {
+                        TextOverlayView(project: project, canvasSize: canvasSize)
+                    }
                 }
                 .frame(width: canvasSize.width, height: canvasSize.height)
                 .clipped()

@@ -18,6 +18,7 @@ struct MIDIPianoRollPanel: View {
                 GeometryReader { geo in
                     PianoRollView(
                         data: midiData,
+                        barConfig: project.barConfig,
                         startPercent: project.midiStartPercent,
                         playbackPercent: project.midiPlaybackPercent
                     )
