@@ -169,11 +169,15 @@ struct PianoOverlayView: View {
         var upY = -dx / lineLen
         if upY > 0 { upX = -upX; upY = -upY }
 
+        let rightX = dx / lineLen
+        let rightY = dy / lineLen
+
         let midY = (tl.y + tr.y) / 2
         let spawnDist: CGFloat = abs(upY) > 0.001 ? abs(midY / upY) : midY
         guard spawnDist > 1 else { return }
 
         let speed = spawnDist / CGFloat(barLeadTime)
+        let cr = CGFloat(project.barConfig.cornerRadius)
 
         for note in midiData.notes {
             let start = note.startTime
@@ -220,17 +224,23 @@ struct PianoOverlayView: View {
 
             guard curH > 0.5 else { continue }
 
-            let bL = CGPoint(x: pL.x + perpOff * upX, y: pL.y + perpOff * upY)
-            let bR = CGPoint(x: pR.x + perpOff * upX, y: pR.y + perpOff * upY)
-            let barTL = CGPoint(x: bL.x + curH * upX, y: bL.y + curH * upY)
-            let barTR = CGPoint(x: bR.x + curH * upX, y: bR.y + curH * upY)
+            let barWidth = hypot(pR.x - pL.x, pR.y - pL.y)
+            guard barWidth > 0.5 else { continue }
 
-            var path = Path()
-            path.move(to: bL)
-            path.addLine(to: bR)
-            path.addLine(to: barTR)
-            path.addLine(to: barTL)
-            path.closeSubpath()
+            let originX = pL.x + perpOff * upX
+            let originY = pL.y + perpOff * upY
+
+            let clampedCR = min(cr, barWidth / 2, curH / 2)
+
+            let localRect = CGRect(x: 0, y: 0, width: barWidth, height: curH)
+            let localPath = Path(roundedRect: localRect, cornerRadius: clampedCR)
+
+            let transform = CGAffineTransform(
+                a: rightX, b: rightY,
+                c: upX,    d: upY,
+                tx: originX, ty: originY
+            )
+            let path = localPath.applying(transform)
 
             context.fill(path, with: .color(.red.opacity(0.8)))
         }

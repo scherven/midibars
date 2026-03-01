@@ -1,7 +1,7 @@
 # TODO MACOS
 
 - [x] get buttons back to white
-- [ ] make bars actually round
+- [x] make bars actually round
 - [ ] make bar & particle controls better
 - [ ] make title controls better
 - [ ] export as video
