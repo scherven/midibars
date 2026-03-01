@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 struct SidebarView: View {
     @ObservedObject var project: ProjectState
 
+    @State private var importing = false
+    @State private var importTypes: [UTType] = []
     @State private var importingVideo = false
     @State private var importingAudio = false
     @State private var importingMIDI = false
@@ -14,13 +16,19 @@ struct SidebarView: View {
                 SectionHeader(title: "Import", icon: "square.and.arrow.down")
 
                 FileImportRow(icon: "film", label: "Video", url: project.videoURL) {
+                    importing = true
                     importingVideo = true
+                    importTypes = [.movie, .video]
                 }
                 FileImportRow(icon: "waveform", label: "Audio", url: project.audioURL) {
+                    importing = true
                     importingAudio = true
+                    importTypes = [.mp3, .audio]
                 }
                 FileImportRow(icon: "pianokeys", label: "MIDI", url: project.midiURL) {
+                    importing = true
                     importingMIDI = true
+                    importTypes = [.midi]
                 }
             }
 
@@ -68,15 +76,30 @@ struct SidebarView: View {
         }
         .padding(16)
         .frame(width: 200)
-        .fileImporter(isPresented: $importingVideo, allowedContentTypes: [.movie, .video]) { result in
-            if case .success(let url) = result { project.loadVideo(url: url) }
+        .fileImporter(isPresented: $importing, allowedContentTypes: importTypes) { result in
+            if case .success(let url) = result {
+                importFile(url: url)
+            }
+            resetImports()
         }
-        .fileImporter(isPresented: $importingAudio, allowedContentTypes: [.mp3, .audio]) { result in
-            if case .success(let url) = result { project.loadAudio(url: url) }
+    }
+    
+    func importFile(url: URL) {
+        if (importingVideo) {
+            project.loadVideo(url: url)
+        } else if (importingAudio) {
+            project.loadAudio(url: url)
+        } else if (importingMIDI) {
+            project.loadMIDI(url: url)
         }
-        .fileImporter(isPresented: $importingMIDI, allowedContentTypes: [.midi]) { result in
-            if case .success(let url) = result { project.loadMIDI(url: url) }
-        }
+    }
+    
+    func resetImports() {
+        importing = false
+        importingVideo = false
+        importingAudio = false
+        importingMIDI = false
+        importTypes = []
     }
 }
 
