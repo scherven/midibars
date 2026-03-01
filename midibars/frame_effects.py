@@ -416,7 +416,7 @@ def draw_midi_bars(frame, midi_bar_params, notes, current_time, lead_time=2.0,
     return frame, current_active_notes
 
 
-def blackout_right_of_line(frame, start_point, end_point, key_widths_scaled=None):
+def blackout_right_of_line(frame, start_point, end_point):
     """
     Black out everything to the right of the piano line (higher x side).
     The line is extrapolated to y=0 and y=frame_height so the blackout covers the full frame.

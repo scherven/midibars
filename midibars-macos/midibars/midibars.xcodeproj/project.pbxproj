@@ -1,0 +1,556 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		20F90E702F54C7FE0012EA8B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 20F90E592F54C7FD0012EA8B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 20F90E602F54C7FD0012EA8B;
+			remoteInfo = midibars;
+		};
+		20F90E7A2F54C7FE0012EA8B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 20F90E592F54C7FD0012EA8B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 20F90E602F54C7FD0012EA8B;
+			remoteInfo = midibars;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		20F90E612F54C7FD0012EA8B /* midibars.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = midibars.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		20F90E6F2F54C7FE0012EA8B /* midibarsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = midibarsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		20F90E792F54C7FE0012EA8B /* midibarsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = midibarsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		20F90E632F54C7FD0012EA8B /* midibars */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = midibars;
+			sourceTree = "<group>";
+		};
+		20F90E722F54C7FE0012EA8B /* midibarsTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = midibarsTests;
+			sourceTree = "<group>";
+		};
+		20F90E7C2F54C7FE0012EA8B /* midibarsUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = midibarsUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		20F90E5E2F54C7FD0012EA8B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20F90E6C2F54C7FE0012EA8B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20F90E762F54C7FE0012EA8B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		20F90E582F54C7FD0012EA8B = {
+			isa = PBXGroup;
+			children = (
+				20F90E632F54C7FD0012EA8B /* midibars */,
+				20F90E722F54C7FE0012EA8B /* midibarsTests */,
+				20F90E7C2F54C7FE0012EA8B /* midibarsUITests */,
+				20F90E622F54C7FD0012EA8B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		20F90E622F54C7FD0012EA8B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				20F90E612F54C7FD0012EA8B /* midibars.app */,
+				20F90E6F2F54C7FE0012EA8B /* midibarsTests.xctest */,
+				20F90E792F54C7FE0012EA8B /* midibarsUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		20F90E602F54C7FD0012EA8B /* midibars */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 20F90E832F54C7FE0012EA8B /* Build configuration list for PBXNativeTarget "midibars" */;
+			buildPhases = (
+				20F90E5D2F54C7FD0012EA8B /* Sources */,
+				20F90E5E2F54C7FD0012EA8B /* Frameworks */,
+				20F90E5F2F54C7FD0012EA8B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				20F90E632F54C7FD0012EA8B /* midibars */,
+			);
+			name = midibars;
+			packageProductDependencies = (
+			);
+			productName = midibars;
+			productReference = 20F90E612F54C7FD0012EA8B /* midibars.app */;
+			productType = "com.apple.product-type.application";
+		};
+		20F90E6E2F54C7FE0012EA8B /* midibarsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 20F90E862F54C7FE0012EA8B /* Build configuration list for PBXNativeTarget "midibarsTests" */;
+			buildPhases = (
+				20F90E6B2F54C7FE0012EA8B /* Sources */,
+				20F90E6C2F54C7FE0012EA8B /* Frameworks */,
+				20F90E6D2F54C7FE0012EA8B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				20F90E712F54C7FE0012EA8B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				20F90E722F54C7FE0012EA8B /* midibarsTests */,
+			);
+			name = midibarsTests;
+			packageProductDependencies = (
+			);
+			productName = midibarsTests;
+			productReference = 20F90E6F2F54C7FE0012EA8B /* midibarsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		20F90E782F54C7FE0012EA8B /* midibarsUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 20F90E892F54C7FE0012EA8B /* Build configuration list for PBXNativeTarget "midibarsUITests" */;
+			buildPhases = (
+				20F90E752F54C7FE0012EA8B /* Sources */,
+				20F90E762F54C7FE0012EA8B /* Frameworks */,
+				20F90E772F54C7FE0012EA8B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				20F90E7B2F54C7FE0012EA8B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				20F90E7C2F54C7FE0012EA8B /* midibarsUITests */,
+			);
+			name = midibarsUITests;
+			packageProductDependencies = (
+			);
+			productName = midibarsUITests;
+			productReference = 20F90E792F54C7FE0012EA8B /* midibarsUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		20F90E592F54C7FD0012EA8B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					20F90E602F54C7FD0012EA8B = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					20F90E6E2F54C7FE0012EA8B = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 20F90E602F54C7FD0012EA8B;
+					};
+					20F90E782F54C7FE0012EA8B = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 20F90E602F54C7FD0012EA8B;
+					};
+				};
+			};
+			buildConfigurationList = 20F90E5C2F54C7FD0012EA8B /* Build configuration list for PBXProject "midibars" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 20F90E582F54C7FD0012EA8B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 20F90E622F54C7FD0012EA8B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				20F90E602F54C7FD0012EA8B /* midibars */,
+				20F90E6E2F54C7FE0012EA8B /* midibarsTests */,
+				20F90E782F54C7FE0012EA8B /* midibarsUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		20F90E5F2F54C7FD0012EA8B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20F90E6D2F54C7FE0012EA8B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20F90E772F54C7FE0012EA8B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		20F90E5D2F54C7FD0012EA8B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20F90E6B2F54C7FE0012EA8B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20F90E752F54C7FE0012EA8B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		20F90E712F54C7FE0012EA8B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 20F90E602F54C7FD0012EA8B /* midibars */;
+			targetProxy = 20F90E702F54C7FE0012EA8B /* PBXContainerItemProxy */;
+		};
+		20F90E7B2F54C7FE0012EA8B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 20F90E602F54C7FD0012EA8B /* midibars */;
+			targetProxy = 20F90E7A2F54C7FE0012EA8B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		20F90E812F54C7FE0012EA8B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = SM7F898GQH;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.3;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		20F90E822F54C7FE0012EA8B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = SM7F898GQH;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		20F90E842F54C7FE0012EA8B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = midibars/midibars.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SM7F898GQH;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.technaplex.midibars;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		20F90E852F54C7FE0012EA8B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = midibars/midibars.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SM7F898GQH;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.technaplex.midibars;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		20F90E872F54C7FE0012EA8B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SM7F898GQH;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.3;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.technaplex.midibarsTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/midibars.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/midibars";
+			};
+			name = Debug;
+		};
+		20F90E882F54C7FE0012EA8B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SM7F898GQH;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.3;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.technaplex.midibarsTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/midibars.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/midibars";
+			};
+			name = Release;
+		};
+		20F90E8A2F54C7FE0012EA8B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SM7F898GQH;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.technaplex.midibarsUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = midibars;
+			};
+			name = Debug;
+		};
+		20F90E8B2F54C7FE0012EA8B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SM7F898GQH;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.technaplex.midibarsUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = midibars;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		20F90E5C2F54C7FD0012EA8B /* Build configuration list for PBXProject "midibars" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20F90E812F54C7FE0012EA8B /* Debug */,
+				20F90E822F54C7FE0012EA8B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		20F90E832F54C7FE0012EA8B /* Build configuration list for PBXNativeTarget "midibars" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20F90E842F54C7FE0012EA8B /* Debug */,
+				20F90E852F54C7FE0012EA8B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		20F90E862F54C7FE0012EA8B /* Build configuration list for PBXNativeTarget "midibarsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20F90E872F54C7FE0012EA8B /* Debug */,
+				20F90E882F54C7FE0012EA8B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		20F90E892F54C7FE0012EA8B /* Build configuration list for PBXNativeTarget "midibarsUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20F90E8A2F54C7FE0012EA8B /* Debug */,
+				20F90E8B2F54C7FE0012EA8B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 20F90E592F54C7FD0012EA8B /* Project object */;
+}
