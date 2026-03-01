@@ -1,10 +1,3 @@
-//
-//  midibarsApp.swift
-//  midibars
-//
-//  Created by Simon Chervenak on 3/1/26.
-//
-
 import SwiftUI
 
 @main
@@ -13,5 +6,6 @@ struct midibarsApp: App {
         WindowGroup {
             ContentView()
         }
+        .defaultSize(width: 1100, height: 700)
     }
 }

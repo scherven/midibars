@@ -1,21 +1,14 @@
-//
-//  ContentView.swift
-//  midibars
-//
-//  Created by Simon Chervenak on 3/1/26.
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var project = ProjectState()
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        HStack(spacing: 0) {
+            SidebarView(project: project)
+            Divider()
+            VideoCanvasView(project: project)
         }
-        .padding()
     }
 }
 
