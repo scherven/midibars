@@ -7,6 +7,7 @@ struct PianoOverlayView: View {
 
     private let blackKeyHeightRatio: CGFloat = 0.62
     private let blackKeyWidthRatio: Double = 0.55
+    private let whiteBarWidthRatio: Double = 0.6
     private let barLeadTime: Double = 2.0
     private let barMinHeight: CGFloat = 8
 
@@ -34,72 +35,76 @@ struct PianoOverlayView: View {
                         )
                     }
 
-                    // 2) Semi-transparent fill when setting piano position
-                    if project.isSettingPiano {
-                        var fill = Path()
-                        fill.move(to: tl)
-                        fill.addLine(to: tr)
-                        fill.addLine(to: br)
-                        fill.addLine(to: bl)
-                        fill.closeSubpath()
-                        context.fill(fill, with: .color(.white.opacity(0.08)))
-                    }
+                    let showOutlines = project.showPianoOverlay || project.isSettingPiano || project.isAdjustingKeys
 
-                    // 3) White key separator lines
-                    let edgeOpacity: Double = project.isAdjustingKeys ? 0.5 : 0.3
-                    for i in 0...whiteNotes.count {
-                        let f = CGFloat(edges[i])
-                        let top = lerp(tl, tr, t: f)
-                        let bot = lerp(bl, br, t: f)
-                        var line = Path()
-                        line.move(to: top)
-                        line.addLine(to: bot)
-                        context.stroke(line, with: .color(.white.opacity(edgeOpacity)), lineWidth: 0.5)
-                    }
-
-                    // 4) Black key bodies
-                    for note in blackNotes {
-                        let (lf, rf) = blackKeyFracs(note: note, whiteIndexMap: whiteIndexMap, edges: edges)
-                        guard lf < rf else { continue }
-                        let path = quadPath(
-                            leftF: lf, rightF: rf,
-                            topG: 0, bottomG: Double(blackKeyHeightRatio),
-                            tl: tl, tr: tr, bl: bl, br: br
-                        )
-                        context.fill(path, with: .color(Color(white: 0.12)))
-                        context.stroke(path, with: .color(.white.opacity(0.3)), lineWidth: 0.5)
-                    }
-
-                    // 5) Outer border
-                    var outline = Path()
-                    outline.move(to: tl)
-                    outline.addLine(to: tr)
-                    outline.addLine(to: br)
-                    outline.addLine(to: bl)
-                    outline.closeSubpath()
-                    context.stroke(outline, with: .color(.white.opacity(0.6)), lineWidth: 1.5)
-
-                    // 6) Corner handles
-                    if project.isSettingPiano {
-                        for point in [tl, tr, bl, br] {
-                            drawHandle(context: context, at: point)
+                    if showOutlines {
+                        // Semi-transparent fill when setting piano position
+                        if project.isSettingPiano {
+                            var fill = Path()
+                            fill.move(to: tl)
+                            fill.addLine(to: tr)
+                            fill.addLine(to: br)
+                            fill.addLine(to: bl)
+                            fill.closeSubpath()
+                            context.fill(fill, with: .color(.white.opacity(0.08)))
                         }
-                    }
 
-                    // 7) Edge adjustment: highlight active edge
-                    if project.isAdjustingKeys, let idx = activeEdge, idx > 0, idx < edges.count - 1 {
-                        let f = CGFloat(edges[idx])
-                        let top = lerp(tl, tr, t: f)
-                        let bot = lerp(bl, br, t: f)
-                        var line = Path()
-                        line.move(to: top)
-                        line.addLine(to: bot)
-                        context.stroke(line, with: .color(.yellow.opacity(0.9)), lineWidth: 2)
-                        let r: CGFloat = 4
-                        context.fill(Path(ellipseIn: CGRect(x: top.x - r, y: top.y - r, width: r * 2, height: r * 2)),
-                                     with: .color(.yellow))
-                        context.fill(Path(ellipseIn: CGRect(x: bot.x - r, y: bot.y - r, width: r * 2, height: r * 2)),
-                                     with: .color(.yellow))
+                        // White key separator lines
+                        let edgeOpacity: Double = project.isAdjustingKeys ? 0.5 : 0.3
+                        for i in 0...whiteNotes.count {
+                            let f = CGFloat(edges[i])
+                            let top = lerp(tl, tr, t: f)
+                            let bot = lerp(bl, br, t: f)
+                            var line = Path()
+                            line.move(to: top)
+                            line.addLine(to: bot)
+                            context.stroke(line, with: .color(.white.opacity(edgeOpacity)), lineWidth: 0.5)
+                        }
+
+                        // Black key bodies
+                        for note in blackNotes {
+                            let (lf, rf) = blackKeyFracs(note: note, whiteIndexMap: whiteIndexMap, edges: edges)
+                            guard lf < rf else { continue }
+                            let path = quadPath(
+                                leftF: lf, rightF: rf,
+                                topG: 0, bottomG: Double(blackKeyHeightRatio),
+                                tl: tl, tr: tr, bl: bl, br: br
+                            )
+                            context.fill(path, with: .color(Color(white: 0.12)))
+                            context.stroke(path, with: .color(.white.opacity(0.3)), lineWidth: 0.5)
+                        }
+
+                        // Outer border
+                        var outline = Path()
+                        outline.move(to: tl)
+                        outline.addLine(to: tr)
+                        outline.addLine(to: br)
+                        outline.addLine(to: bl)
+                        outline.closeSubpath()
+                        context.stroke(outline, with: .color(.white.opacity(0.6)), lineWidth: 1.5)
+
+                        // Corner handles
+                        if project.isSettingPiano {
+                            for point in [tl, tr, bl, br] {
+                                drawHandle(context: context, at: point)
+                            }
+                        }
+
+                        // Edge adjustment: highlight active edge
+                        if project.isAdjustingKeys, let idx = activeEdge, idx > 0, idx < edges.count - 1 {
+                            let f = CGFloat(edges[idx])
+                            let top = lerp(tl, tr, t: f)
+                            let bot = lerp(bl, br, t: f)
+                            var line = Path()
+                            line.move(to: top)
+                            line.addLine(to: bot)
+                            context.stroke(line, with: .color(.yellow.opacity(0.9)), lineWidth: 2)
+                            let r: CGFloat = 4
+                            context.fill(Path(ellipseIn: CGRect(x: top.x - r, y: top.y - r, width: r * 2, height: r * 2)),
+                                         with: .color(.yellow))
+                            context.fill(Path(ellipseIn: CGRect(x: bot.x - r, y: bot.y - r, width: r * 2, height: r * 2)),
+                                         with: .color(.yellow))
+                        }
                     }
                 }
 
@@ -200,8 +205,11 @@ struct PianoOverlayView: View {
                 (lf, rf) = fracs
             } else {
                 guard let idx = whiteIndexMap[pitch] else { continue }
-                lf = edges[idx]
-                rf = edges[idx + 1]
+                let keyLeft = edges[idx]
+                let keyRight = edges[idx + 1]
+                let inset = (keyRight - keyLeft) * (1 - whiteBarWidthRatio) / 2
+                lf = keyLeft + inset
+                rf = keyRight - inset
             }
 
             let pL = lerp(tl, tr, t: CGFloat(lf))

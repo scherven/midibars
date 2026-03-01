@@ -38,7 +38,7 @@ struct VideoCanvasView: View {
                         emptyState
                     }
 
-                    if project.showPianoOverlay || project.isSettingPiano || project.isAdjustingKeys {
+                    if project.midiData != nil || project.showPianoOverlay || project.isSettingPiano || project.isAdjustingKeys {
                         PianoOverlayView(project: project)
                     }
                 }
