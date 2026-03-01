@@ -24,9 +24,23 @@ struct AudioWaveformPanel: View {
                     .font(.caption)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if !project.waveformSamples.isEmpty {
-                WaveformView(samples: project.waveformSamples)
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 8)
+                GeometryReader { geo in
+                    WaveformView(
+                        samples: project.waveformSamples,
+                        startPercent: project.audioStartPercent,
+                        playbackPercent: project.playbackPercent
+                    )
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                            .onEnded { value in
+                                let percent = Double(value.location.x / geo.size.width) * 100.0
+                                project.audioStartPercent = min(max(percent, 0), 100)
+                            }
+                    )
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -36,6 +50,8 @@ struct AudioWaveformPanel: View {
 
 struct WaveformView: View {
     let samples: [Float]
+    var startPercent: Double = 0
+    var playbackPercent: Double = 0
 
     var body: some View {
         Canvas { context, size in
@@ -61,6 +77,18 @@ struct WaveformView: View {
             centerLine.move(to: CGPoint(x: 0, y: midY))
             centerLine.addLine(to: CGPoint(x: size.width, y: midY))
             context.stroke(centerLine, with: .color(.primary.opacity(0.08)), lineWidth: 0.5)
+
+            let startX = size.width * CGFloat(startPercent / 100.0)
+            var startLine = Path()
+            startLine.move(to: CGPoint(x: startX, y: 0))
+            startLine.addLine(to: CGPoint(x: startX, y: size.height))
+            context.stroke(startLine, with: .color(.red), lineWidth: 1.5)
+
+            let playX = size.width * CGFloat(playbackPercent / 100.0)
+            var playLine = Path()
+            playLine.move(to: CGPoint(x: playX, y: 0))
+            playLine.addLine(to: CGPoint(x: playX, y: size.height))
+            context.stroke(playLine, with: .color(.green), lineWidth: 1.5)
         }
     }
 }

@@ -143,10 +143,50 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Playback", icon: "play.circle")
 
+            if project.player != nil {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(project.currentTimeString)
+                            .font(.caption)
+                            .monospacedDigit()
+                        Spacer()
+                        Text(project.durationString)
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $project.videoPercent, in: 0...100) { editing in
+                        if editing {
+                            project.beginSeeking()
+                        } else {
+                            project.endSeeking()
+                        }
+                    }
+                    .controlSize(.small)
+                    .onChange(of: project.videoPercent) { _, _ in
+                        if project.isSeeking {
+                            project.scrubVideo(to: project.videoPercent)
+                        }
+                    }
+                }
+            }
+
+            Button(action: project.togglePlayback) {
+                Label(
+                    project.isPlaying ? "Pause" : "Play",
+                    systemImage: project.isPlaying ? "pause.fill" : "play.fill"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .controlSize(.large)
+            .buttonStyle(.bordered)
+            .keyboardShortcut(KeyEquivalent(" "), modifiers: [])
+            .disabled(project.player == nil && project.audioPlayer == nil)
+
             if project.audioURL != nil {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 2) {
-                        Text("Start:")
+                        Text("Audio start:")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         TextField("", value: $project.audioStartPercent, format: .number.precision(.fractionLength(0...2)))
@@ -162,18 +202,6 @@ struct SidebarView: View {
                         .controlSize(.small)
                 }
             }
-
-            Button(action: project.togglePlayback) {
-                Label(
-                    project.isPlaying ? "Pause" : "Play",
-                    systemImage: project.isPlaying ? "pause.fill" : "play.fill"
-                )
-                .frame(maxWidth: .infinity)
-            }
-            .controlSize(.large)
-            .buttonStyle(.bordered)
-            .keyboardShortcut(KeyEquivalent(" "), modifiers: [])
-            .disabled(project.player == nil && project.audioPlayer == nil)
         }
     }
 
