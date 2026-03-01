@@ -4,6 +4,9 @@ struct EditorView: View {
     @ObservedObject var project: ProjectState
     let projectID: UUID
     let onClose: () -> Void
+    let lastSavedAt: Date?
+    let lastSaveWasAuto: Bool
+    let onManualSave: () -> Void
     @EnvironmentObject var store: ProjectStore
 
     private var projectName: String {
@@ -28,8 +31,18 @@ struct EditorView: View {
 
                 Spacer()
 
+                if lastSavedAt != nil {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                        Text(lastSaveWasAuto ? "Auto-saved" : "Saved")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Button {
-                    saveProject()
+                    onManualSave()
                 } label: {
                     Label("Save", systemImage: "square.and.arrow.down.on.square")
                         .font(.subheadline)
@@ -65,10 +78,4 @@ struct EditorView: View {
         }
     }
 
-    private func saveProject() {
-        if var config = store.project(for: projectID) {
-            project.save(into: &config)
-            store.save(config)
-        }
-    }
 }

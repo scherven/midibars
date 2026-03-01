@@ -309,6 +309,8 @@ class ProjectState: ObservableObject {
         let whiteIndexMap = Dictionary(uniqueKeysWithValues: whites.enumerated().map { ($1, $0) })
         let edges = effectiveEdgesForParticles(whiteCount: whites.count)
 
+        let currentTime = midiData?.duration ?? 0 * (midiPlaybackPercent / 100.0)
+
         for pitch in newHits {
             guard let fraction = keyFractionOnTopEdge(
                 pitch: Int(pitch),
@@ -323,8 +325,19 @@ class ProjectState: ObservableObject {
                 topRight: pianoTopRight
             )
 
+            let velocity: CGFloat
+            if let note = midiData?.notes.first(where: {
+                $0.pitch == pitch &&
+                currentTime >= $0.startTime &&
+                currentTime < $0.startTime + $0.duration
+            }) {
+                velocity = CGFloat(note.velocity) / 127.0
+            } else {
+                velocity = 0.8
+            }
+
             let color: NSColor = .red
-            particleScene.emitParticles(atNormalized: normalizedPoint, color: color)
+            particleScene.emitParticles(atNormalized: normalizedPoint, color: color, velocity: velocity)
         }
     }
 

@@ -46,10 +46,12 @@ class PianoParticleScene: SKScene {
         scaleMode = .resizeFill
     }
 
-    /// Emit particles at a normalized position (0-1 range in both axes, SwiftUI-style origin at top-left).
-    /// The scene converts to SpriteKit coordinates internally.
-    func emitParticles(atNormalized normalizedPoint: CGPoint, color: NSColor) {
+    /// Emit particles at a normalized position (0-1 range, SwiftUI-style origin at top-left).
+    /// `velocity` is 0.0-1.0 (from MIDI 0-127); louder = brighter, faster, more particles.
+    func emitParticles(atNormalized normalizedPoint: CGPoint, color: NSColor, velocity: CGFloat) {
         guard particleConfig.enabled, size.width > 0, size.height > 0 else { return }
+
+        let velScale = max(0.3, velocity)
 
         let position = CGPoint(
             x: normalizedPoint.x * size.width,
@@ -65,19 +67,21 @@ class PianoParticleScene: SKScene {
             emitter.particleTexture = SKTexture(imageNamed: name)
         }
 
-        emitter.particleBirthRate = CGFloat(config.birthRate)
-        emitter.numParticlesToEmit = config.numToEmit
+        emitter.particlePositionRange = CGVector(dx: 8, dy: 0)
+
+        emitter.particleBirthRate = CGFloat(config.birthRate) * velScale
+        emitter.numParticlesToEmit = Int(Double(config.numToEmit) * Double(velScale))
         emitter.emissionAngle = CGFloat(config.emissionAngle * .pi / 180)
         emitter.emissionAngleRange = CGFloat(config.emissionAngleRange * .pi / 180)
 
-        emitter.particleLifetime = CGFloat(config.lifetime)
+        emitter.particleLifetime = CGFloat(config.lifetime) * velScale
         emitter.particleLifetimeRange = CGFloat(config.lifetimeRange)
 
-        emitter.particleSpeed = CGFloat(config.speed)
+        emitter.particleSpeed = CGFloat(config.speed) * velScale
         emitter.particleSpeedRange = CGFloat(config.speedRange)
 
         emitter.xAcceleration = CGFloat(config.xAcceleration)
-        emitter.yAcceleration = CGFloat(config.yAcceleration)
+        emitter.yAcceleration = CGFloat(config.yAcceleration) * velScale
 
         emitter.particleScale = CGFloat(config.scale)
         emitter.particleScaleRange = CGFloat(config.scaleRange)
@@ -86,7 +90,7 @@ class PianoParticleScene: SKScene {
         emitter.particleRotationSpeed = CGFloat(config.rotationSpeed)
         emitter.particleRotationRange = CGFloat(config.rotationRange)
 
-        emitter.particleAlpha = CGFloat(config.alpha)
+        emitter.particleAlpha = CGFloat(config.alpha) * velScale
         emitter.particleAlphaSpeed = CGFloat(config.alphaSpeed)
         emitter.particleAlphaRange = CGFloat(config.alphaRange)
 
@@ -107,7 +111,7 @@ class PianoParticleScene: SKScene {
         emitter.position = position
         addChild(emitter)
 
-        let totalLife = config.lifetime + config.lifetimeRange + 0.1
+        let totalLife = Double(emitter.particleLifetime + emitter.particleLifetimeRange) + 0.1
         emitter.run(.sequence([
             .wait(forDuration: totalLife),
             .removeFromParent()

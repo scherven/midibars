@@ -4,6 +4,11 @@ struct ContentView: View {
     @EnvironmentObject var store: ProjectStore
     @StateObject private var project = ProjectState()
     @State private var openProjectID: UUID?
+    @Environment(\.scenePhase) private var scenePhase
+
+    @State private var lastSavedAt: Date?
+    @State private var lastSaveWasAuto: Bool = false
+    @State private var autoSaveTask: Task<Void, Never>?
 
     var body: some View {
         Group {
@@ -11,7 +16,10 @@ struct ContentView: View {
                 EditorView(
                     project: project,
                     projectID: projectID,
-                    onClose: { saveAndClose() }
+                    onClose: { saveAndClose() },
+                    lastSavedAt: lastSavedAt,
+                    lastSaveWasAuto: lastSaveWasAuto,
+                    onManualSave: { performSave(autosave: false) }
                 )
                 .environmentObject(store)
             } else {
@@ -20,21 +28,63 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: openProjectID != nil)
+        .onChange(of: openProjectID) { _, newID in
+            if newID != nil {
+                startAutoSave()
+            } else {
+                stopAutoSave()
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .inactive || newPhase == .background {
+                performSave(autosave: true)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            performSave(autosave: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willResignActiveNotification)) { _ in
+            performSave(autosave: true)
+        }
     }
 
     private func openProject(id: UUID) {
         guard let config = store.project(for: id) else { return }
         project.restore(from: config)
         openProjectID = id
+        lastSavedAt = nil
+        lastSaveWasAuto = false
+    }
+
+    private func startAutoSave() {
+        autoSaveTask?.cancel()
+        autoSaveTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
+                guard !Task.isCancelled else { break }
+                performSave(autosave: true)
+            }
+        }
+    }
+
+    private func stopAutoSave() {
+        autoSaveTask?.cancel()
+        autoSaveTask = nil
+    }
+
+    private func performSave(autosave: Bool) {
+        guard let id = openProjectID, var config = store.project(for: id) else { return }
+        project.save(into: &config)
+        store.save(config)
+        lastSavedAt = Date()
+        lastSaveWasAuto = autosave
     }
 
     private func saveAndClose() {
-        if let id = openProjectID, var config = store.project(for: id) {
-            project.save(into: &config)
-            store.save(config)
-        }
+        performSave(autosave: false)
         project.reset()
         openProjectID = nil
+        lastSavedAt = nil
     }
 }
 
