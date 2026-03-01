@@ -289,26 +289,35 @@ class ProjectState: ObservableObject {
                 activeMIDINotes = []
             }
 
-            emitParticlesForNewHits(newActive)
+            emitParticlesForActiveNotes(currentActive: newActive, currentTime: currentTime)
         } else {
             midiPlaybackPercent = 0
             activeMIDINotes = []
             previouslyActiveNotes = []
+            lastSustainedEmitTime = 0
         }
     }
 
     // MARK: - Particle Hit Detection
 
-    private func emitParticlesForNewHits(_ currentActive: Set<UInt8>) {
+    private var lastSustainedEmitTime: Double = 0
+
+    private func emitParticlesForActiveNotes(currentActive: Set<UInt8>, currentTime: Double) {
         guard particleConfig.enabled else {
             previouslyActiveNotes = currentActive
             return
         }
 
         let newHits = currentActive.subtracting(previouslyActiveNotes)
+        let sustainedInterval = particleConfig.sustainedEmitInterval
+        let shouldEmitSustained = sustainedInterval > 0 && (currentTime - lastSustainedEmitTime) >= sustainedInterval
+        if shouldEmitSustained {
+            lastSustainedEmitTime = currentTime
+        }
         previouslyActiveNotes = currentActive
 
-        guard !newHits.isEmpty else { return }
+        let notesToEmit = shouldEmitSustained ? currentActive : newHits
+        guard !notesToEmit.isEmpty else { return }
 
         particleScene.particleConfig = particleConfig
 
@@ -316,9 +325,7 @@ class ProjectState: ObservableObject {
         let whiteIndexMap = Dictionary(uniqueKeysWithValues: whites.enumerated().map { ($1, $0) })
         let edges = effectiveEdgesForParticles(whiteCount: whites.count)
 
-        let currentTime = midiData?.duration ?? 0 * (midiPlaybackPercent / 100.0)
-
-        for pitch in newHits {
+        for pitch in notesToEmit {
             guard let fraction = keyFractionOnTopEdge(
                 pitch: Int(pitch),
                 edges: edges,
@@ -333,18 +340,21 @@ class ProjectState: ObservableObject {
             )
 
             let velocity: CGFloat
+            let noteDuration: Double
             if let note = midiData?.notes.first(where: {
                 $0.pitch == pitch &&
                 currentTime >= $0.startTime &&
                 currentTime < $0.startTime + $0.duration
             }) {
                 velocity = CGFloat(note.velocity) / 127.0
+                noteDuration = note.duration
             } else {
                 velocity = 0.8
+                noteDuration = 0
             }
 
             let color: NSColor = .red
-            particleScene.emitParticles(atNormalized: normalizedPoint, color: color, velocity: velocity)
+            particleScene.emitParticles(atNormalized: normalizedPoint, color: color, velocity: velocity, noteDuration: noteDuration)
         }
     }
 
@@ -508,6 +518,7 @@ class ProjectState: ObservableObject {
         pianoWhiteKeyEdges = []
         activeMIDINotes = []
         previouslyActiveNotes = []
+        lastSustainedEmitTime = 0
         particleScene.removeAllParticles()
         barConfig = BarConfiguration()
         textOverlays = []

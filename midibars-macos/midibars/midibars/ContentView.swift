@@ -1,9 +1,12 @@
 import SwiftUI
 
+private let lastOpenProjectIDKey = "midibars.lastOpenProjectID"
+
 struct ContentView: View {
     @EnvironmentObject var store: ProjectStore
     @StateObject private var project = ProjectState()
     @State private var openProjectID: UUID?
+    @State private var hasRestoredLastProject = false
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var lastSavedAt: Date?
@@ -46,6 +49,14 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willResignActiveNotification)) { _ in
             performSave(autosave: true)
         }
+        .onAppear {
+            guard !hasRestoredLastProject, openProjectID == nil else { return }
+            hasRestoredLastProject = true
+            guard let idString = UserDefaults.standard.string(forKey: lastOpenProjectIDKey),
+                  let lastID = UUID(uuidString: idString),
+                  store.project(for: lastID) != nil else { return }
+            openProject(id: lastID)
+        }
     }
 
     private func openProject(id: UUID) {
@@ -54,6 +65,7 @@ struct ContentView: View {
         openProjectID = id
         lastSavedAt = nil
         lastSaveWasAuto = false
+        UserDefaults.standard.set(id.uuidString, forKey: lastOpenProjectIDKey)
     }
 
     private func startAutoSave() {

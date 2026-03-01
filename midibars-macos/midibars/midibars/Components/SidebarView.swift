@@ -178,6 +178,41 @@ struct SidebarView: View {
                 Slider(value: particleBinding(\.scale), in: 0.05...0.8)
                     .controlSize(.small)
             }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Loud note pop:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Slider(value: particleBinding(\.loudNotePopMultiplier), in: 1.0...3.0)
+                    .controlSize(.small)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Loud note particles:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Slider(value: particleBinding(\.loudNoteParticleMultiplier), in: 1.0...3.0)
+                    .controlSize(.small)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Long note swirl:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Slider(value: particleBinding(\.longNoteSwirlMultiplier), in: 1.0...3.0)
+                    .controlSize(.small)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Sustained emit (s):")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    TextField("", value: particleBinding(\.sustainedEmitInterval), format: .number.precision(.fractionLength(2)))
+                        .font(.caption)
+                        .monospacedDigit()
+                        .textFieldStyle(.plain)
+                        .frame(width: 36)
+                    Slider(value: particleBinding(\.sustainedEmitInterval), in: 0...0.2)
+                        .controlSize(.small)
+                }
+            }
             Toggle("Use note color", isOn: particleBinding(\.useNoteColor))
                 .font(.caption)
                 .toggleStyle(.switch)

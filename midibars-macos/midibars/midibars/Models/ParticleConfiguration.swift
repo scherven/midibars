@@ -35,6 +35,17 @@ struct ParticleConfiguration: Codable, Equatable {
 
     var rotationSpeed: Double = 2.0
     var rotationRange: Double = 4.0
+    /// Extra swirl for longer notes (1 = none, 2 = double swirl for long notes).
+    var longNoteSwirlMultiplier: Double = 1.5
+
+    // MARK: - Velocity / duration response
+
+    /// How much louder notes "pop" more (scale/speed boost; 1 = no extra, 2 = double at full velocity).
+    var loudNotePopMultiplier: Double = 1.5
+    /// How many more particles spawn for louder notes (1 = no extra, 2 = double at full velocity).
+    var loudNoteParticleMultiplier: Double = 1.5
+    /// Emit for held notes every this many seconds (0 = only on note-on).
+    var sustainedEmitInterval: Double = 0.05
 
     // MARK: - Alpha
 
