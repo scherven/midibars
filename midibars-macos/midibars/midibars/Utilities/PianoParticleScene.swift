@@ -4,11 +4,27 @@ class PianoParticleScene: SKScene {
     var particleConfig = ParticleConfiguration()
 
     private static let defaultTexture: SKTexture = {
-        let diameter: CGFloat = 16
+        let diameter: CGFloat = 32
         let image = NSImage(size: NSSize(width: diameter, height: diameter), flipped: false) { rect in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
-            ctx.setFillColor(NSColor.white.cgColor)
-            ctx.fillEllipse(in: rect)
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let center = CGPoint(x: diameter / 2, y: diameter / 2)
+            let radius = diameter / 2
+            guard let gradient = CGGradient(
+                colorsSpace: colorSpace,
+                colors: [
+                    NSColor.white.cgColor,
+                    NSColor(white: 1.0, alpha: 0.4).cgColor,
+                    NSColor(white: 1.0, alpha: 0.0).cgColor
+                ] as CFArray,
+                locations: [0.0, 0.35, 1.0]
+            ) else { return false }
+            ctx.drawRadialGradient(
+                gradient,
+                startCenter: center, startRadius: 0,
+                endCenter: center, endRadius: radius,
+                options: .drawsAfterEndLocation
+            )
             return true
         }
         return SKTexture(image: image)
@@ -66,6 +82,9 @@ class PianoParticleScene: SKScene {
         emitter.particleScale = CGFloat(config.scale)
         emitter.particleScaleRange = CGFloat(config.scaleRange)
         emitter.particleScaleSpeed = CGFloat(config.scaleSpeed)
+
+        emitter.particleRotationSpeed = CGFloat(config.rotationSpeed)
+        emitter.particleRotationRange = CGFloat(config.rotationRange)
 
         emitter.particleAlpha = CGFloat(config.alpha)
         emitter.particleAlphaSpeed = CGFloat(config.alphaSpeed)

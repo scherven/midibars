@@ -6,35 +6,40 @@ struct ParticleConfiguration: Codable, Equatable {
     // MARK: - Emission
 
     var birthRate: Double = 80
-    var numToEmit: Int = 30
-    var emissionAngle: Double = 270
-    var emissionAngleRange: Double = 90
+    var numToEmit: Int = 40
+    var emissionAngle: Double = 90
+    var emissionAngleRange: Double = 150
 
     // MARK: - Lifetime
 
-    var lifetime: Double = 0.6
-    var lifetimeRange: Double = 0.3
+    var lifetime: Double = 1.2
+    var lifetimeRange: Double = 0.5
 
     // MARK: - Speed
 
-    var speed: Double = 150
-    var speedRange: Double = 50
+    var speed: Double = 120
+    var speedRange: Double = 60
 
     // MARK: - Acceleration
 
     var xAcceleration: Double = 0
-    var yAcceleration: Double = -200
+    var yAcceleration: Double = 40
 
     // MARK: - Scale
 
-    var scale: Double = 0.15
-    var scaleRange: Double = 0.1
-    var scaleSpeed: Double = -0.2
+    var scale: Double = 0.2
+    var scaleRange: Double = 0.12
+    var scaleSpeed: Double = -0.15
+
+    // MARK: - Rotation (swirl)
+
+    var rotationSpeed: Double = 2.0
+    var rotationRange: Double = 4.0
 
     // MARK: - Alpha
 
     var alpha: Double = 1.0
-    var alphaSpeed: Double = -1.5
+    var alphaSpeed: Double = -0.7
     var alphaRange: Double = 0.3
 
     // MARK: - Color
