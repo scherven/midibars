@@ -366,6 +366,7 @@ class VideoExporter: ObservableObject {
         var particles: [ExportParticle] = []
         var previouslyActiveNotes: Set<UInt8> = []
         var lastSustainedEmitTime: Double = 0
+        var previousMidiTime: Double = 0
         let dt = 1.0 / fps
         let w = CGFloat(outputWidth)
         let h = CGFloat(outputHeight)
@@ -429,6 +430,7 @@ class VideoExporter: ObservableObject {
                 particles: &particles,
                 previouslyActiveNotes: &previouslyActiveNotes,
                 lastSustainedEmitTime: &lastSustainedEmitTime,
+                previousMidiTime: &previousMidiTime,
                 w: w, h: h
             )
             updateParticles(&particles, dt: CGFloat(dt), config: snapshot.particleConfig)
@@ -628,10 +630,12 @@ class VideoExporter: ObservableObject {
         particles: inout [ExportParticle],
         previouslyActiveNotes: inout Set<UInt8>,
         lastSustainedEmitTime: inout Double,
+        previousMidiTime: inout Double,
         w: CGFloat, h: CGFloat
     ) {
         guard snapshot.particleConfig.enabled else {
             previouslyActiveNotes = []
+            previousMidiTime = midiTime
             return
         }
         guard let midiData = snapshot.midiData, midiData.duration > 0 else { return }
@@ -641,12 +645,25 @@ class VideoExporter: ObservableObject {
         }.map(\.pitch))
 
         let newHits = currentActive.subtracting(previouslyActiveNotes)
+
+        var missedNotes: Set<UInt8> = []
+        if previousMidiTime > 0, previousMidiTime < midiTime {
+            missedNotes = Set(midiData.notes.filter {
+                $0.startTime >= previousMidiTime &&
+                $0.startTime + $0.duration <= midiTime &&
+                !currentActive.contains($0.pitch)
+            }.map(\.pitch))
+        }
+        let prevTime = previousMidiTime
+        previousMidiTime = midiTime
+
         let sustInterval = snapshot.particleConfig.sustainedEmitInterval
         let shouldEmitSustained = sustInterval > 0 && (midiTime - lastSustainedEmitTime) >= sustInterval
         if shouldEmitSustained { lastSustainedEmitTime = midiTime }
         previouslyActiveNotes = currentActive
 
-        let notesToEmit = shouldEmitSustained ? currentActive : newHits
+        var notesToEmit = shouldEmitSustained ? currentActive : newHits
+        notesToEmit.formUnion(missedNotes)
         guard !notesToEmit.isEmpty else { return }
 
         let config = snapshot.particleConfig
@@ -668,6 +685,13 @@ class VideoExporter: ObservableObject {
             let noteDuration: Double
             if let note = midiData.notes.first(where: {
                 $0.pitch == pitch && midiTime >= $0.startTime && midiTime < $0.startTime + $0.duration
+            }) {
+                velocity = CGFloat(note.velocity) / 127.0
+                noteDuration = note.duration
+            } else if let note = midiData.notes.first(where: {
+                $0.pitch == pitch &&
+                $0.startTime >= prevTime &&
+                $0.startTime + $0.duration <= midiTime
             }) {
                 velocity = CGFloat(note.velocity) / 127.0
                 noteDuration = note.duration

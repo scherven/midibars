@@ -304,20 +304,37 @@ class ProjectState: ObservableObject {
             activeMIDINotes = []
             previouslyActiveNotes = []
             lastSustainedEmitTime = 0
+            lastParticleSampleTime = 0
         }
     }
 
     // MARK: - Particle Hit Detection
 
     private var lastSustainedEmitTime: Double = 0
+    private var lastParticleSampleTime: Double = 0
 
     private func emitParticlesForActiveNotes(currentActive: Set<UInt8>, currentTime: Double) {
         guard particleConfig.enabled else {
             previouslyActiveNotes = currentActive
+            lastParticleSampleTime = currentTime
             return
         }
 
         let newHits = currentActive.subtracting(previouslyActiveNotes)
+
+        // Detect notes that started and ended entirely between the last sample
+        // and now — too short to be caught by the 30fps sampling.
+        let previousTime = lastParticleSampleTime
+        var missedNotes: Set<UInt8> = []
+        if let midiData, previousTime > 0, previousTime < currentTime {
+            missedNotes = Set(midiData.notes.filter {
+                $0.startTime >= previousTime &&
+                $0.startTime + $0.duration <= currentTime &&
+                !currentActive.contains($0.pitch)
+            }.map(\.pitch))
+        }
+        lastParticleSampleTime = currentTime
+
         let sustainedInterval = particleConfig.sustainedEmitInterval
         let shouldEmitSustained = sustainedInterval > 0 && (currentTime - lastSustainedEmitTime) >= sustainedInterval
         if shouldEmitSustained {
@@ -325,7 +342,8 @@ class ProjectState: ObservableObject {
         }
         previouslyActiveNotes = currentActive
 
-        let notesToEmit = shouldEmitSustained ? currentActive : newHits
+        var notesToEmit = shouldEmitSustained ? currentActive : newHits
+        notesToEmit.formUnion(missedNotes)
         guard !notesToEmit.isEmpty else { return }
 
         particleScene.particleConfig = particleConfig
@@ -354,6 +372,13 @@ class ProjectState: ObservableObject {
                 $0.pitch == pitch &&
                 currentTime >= $0.startTime &&
                 currentTime < $0.startTime + $0.duration
+            }) {
+                velocity = CGFloat(note.velocity) / 127.0
+                noteDuration = note.duration
+            } else if let note = midiData?.notes.first(where: {
+                $0.pitch == pitch &&
+                $0.startTime >= previousTime &&
+                $0.startTime + $0.duration <= currentTime
             }) {
                 velocity = CGFloat(note.velocity) / 127.0
                 noteDuration = note.duration
