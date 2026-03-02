@@ -72,6 +72,8 @@ class ProjectState: ObservableObject {
     @Published var globalTextFadeOutDuration: Double = 1
     /// Global font for all text overlays (empty = system default).
     @Published var globalTextFontName: String = ""
+    @Published var lastCanvasDisplaySize: CGSize = CGSize(width: 800, height: 450)
+
     let particleScene = PianoParticleScene()
     private var previouslyActiveNotes: Set<UInt8> = []
     private let blackKeyWidthRatio: Double = 0.55

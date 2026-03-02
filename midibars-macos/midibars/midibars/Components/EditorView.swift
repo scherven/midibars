@@ -8,6 +8,8 @@ struct EditorView: View {
     let lastSaveWasAuto: Bool
     let onManualSave: () -> Void
     @EnvironmentObject var store: ProjectStore
+    @StateObject private var exporter = VideoExporter()
+    @State private var showExportSheet = false
     @SceneStorage("midibars.midiViewerExpanded") private var midiViewerExpanded: Bool = true
     @SceneStorage("midibars.audioViewerExpanded") private var audioViewerExpanded: Bool = true
 
@@ -51,6 +53,17 @@ struct EditorView: View {
                 }
                 .buttonStyle(.bordered)
                 .keyboardShortcut("s", modifiers: .command)
+
+                Button {
+                    exporter.reset()
+                    exporter.startExport(project: project, projectName: projectName)
+                    showExportSheet = true
+                } label: {
+                    Label("Export Video", systemImage: "square.and.arrow.up")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.bordered)
+                .disabled(project.videoURL == nil && project.audioURL == nil && project.midiData == nil)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -78,6 +91,10 @@ struct EditorView: View {
             .animation(.easeInOut(duration: 0.25), value: project.midiURL != nil)
             .animation(.easeInOut(duration: 0.25), value: project.audioURL != nil)
         }
+        .sheet(isPresented: $showExportSheet) {
+            ExportProgressView(exporter: exporter) {
+                showExportSheet = false
+            }
+        }
     }
-
 }

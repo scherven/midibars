@@ -55,6 +55,8 @@ struct VideoCanvasView: View {
                 .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
                 .gesture(dragGesture)
                 .gesture(magnifyGesture)
+                .onAppear { project.lastCanvasDisplaySize = canvasSize }
+                .onChange(of: canvasSize) { _, newSize in project.lastCanvasDisplaySize = newSize }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
