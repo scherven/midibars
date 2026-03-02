@@ -8,7 +8,7 @@ struct ParticleConfiguration: Codable, Equatable {
     var birthRate: Double = 80
     var numToEmit: Int = 40
     var emissionAngle: Double = 90
-    var emissionAngleRange: Double = 150
+    var emissionAngleRange: Double = 50
 
     // MARK: - Lifetime
 
@@ -37,6 +37,8 @@ struct ParticleConfiguration: Codable, Equatable {
     var rotationRange: Double = 4.0
     /// Extra swirl for longer notes (1 = none, 2 = double swirl for long notes).
     var longNoteSwirlMultiplier: Double = 1.5
+    /// Vortex field strength applied to all particles (0 = no swirl).
+    var swirlStrength: Double = 0
 
     // MARK: - Velocity / duration response
 

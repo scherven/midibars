@@ -1,7 +1,15 @@
 import SpriteKit
 
 class PianoParticleScene: SKScene {
-    var particleConfig = ParticleConfiguration()
+    var particleConfig = ParticleConfiguration() {
+        didSet {
+            if oldValue.swirlStrength != particleConfig.swirlStrength {
+                updateVortexField()
+            }
+        }
+    }
+
+    private var vortexNode: SKFieldNode?
 
     private static let defaultTexture: SKTexture = {
         let diameter: CGFloat = 32
@@ -124,7 +132,29 @@ class PianoParticleScene: SKScene {
         ]))
     }
 
+    private func updateVortexField() {
+        vortexNode?.removeFromParent()
+        vortexNode = nil
+
+        guard particleConfig.swirlStrength != 0 else { return }
+
+        let field = SKFieldNode.vortexField()
+        field.strength = Float(particleConfig.swirlStrength)
+        field.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        field.region = SKRegion(size: CGSize(width: 1e5, height: 1e5))
+        field.falloff = 0
+        addChild(field)
+        vortexNode = field
+    }
+
+    override func didChangeSize(_ oldSize: CGSize) {
+        super.didChangeSize(oldSize)
+        vortexNode?.position = CGPoint(x: size.width / 2, y: size.height / 2)
+    }
+
     func removeAllParticles() {
+        let vortex = vortexNode
         removeAllChildren()
+        if let vortex { addChild(vortex) }
     }
 }

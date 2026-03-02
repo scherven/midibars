@@ -242,7 +242,12 @@ struct PianoOverlayView: View {
             )
             let path = localPath.applying(transform)
 
-            context.fill(path, with: .color(.red.opacity(0.8)))
+            let barColor = Color(
+                red: project.barConfig.colorRed,
+                green: project.barConfig.colorGreen,
+                blue: project.barConfig.colorBlue
+            ).opacity(0.8)
+            context.fill(path, with: .color(barColor))
         }
     }
 

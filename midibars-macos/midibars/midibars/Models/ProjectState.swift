@@ -65,6 +65,11 @@ class ProjectState: ObservableObject {
 
     @Published var textOverlays: [TextOverlayItem] = []
     @Published var selectedTextOverlayID: UUID?
+    /// Global fade timing used when an overlay has "fade in/out with others" enabled.
+    @Published var globalTextFadeInAt: Double = 0
+    @Published var globalTextFadeInDuration: Double = 1
+    @Published var globalTextFadeOutAt: Double = 0
+    @Published var globalTextFadeOutDuration: Double = 1
     let particleScene = PianoParticleScene()
     private var previouslyActiveNotes: Set<UInt8> = []
     private let blackKeyWidthRatio: Double = 0.55
@@ -353,7 +358,22 @@ class ProjectState: ObservableObject {
                 noteDuration = 0
             }
 
-            let color: NSColor = .red
+            let color: NSColor
+            if particleConfig.useNoteColor {
+                color = NSColor(
+                    red: CGFloat(barConfig.colorRed),
+                    green: CGFloat(barConfig.colorGreen),
+                    blue: CGFloat(barConfig.colorBlue),
+                    alpha: 1
+                )
+            } else {
+                color = NSColor(
+                    red: CGFloat(particleConfig.particleColorRed),
+                    green: CGFloat(particleConfig.particleColorGreen),
+                    blue: CGFloat(particleConfig.particleColorBlue),
+                    alpha: 1
+                )
+            }
             particleScene.emitParticles(atNormalized: normalizedPoint, color: color, velocity: velocity, noteDuration: noteDuration)
         }
     }
@@ -415,6 +435,10 @@ class ProjectState: ObservableObject {
         config.particleConfig = particleConfig
         config.barConfig = barConfig
         config.textOverlays = textOverlays.isEmpty ? nil : textOverlays
+        config.globalTextFadeInAt = globalTextFadeInAt
+        config.globalTextFadeInDuration = globalTextFadeInDuration
+        config.globalTextFadeOutAt = globalTextFadeOutAt
+        config.globalTextFadeOutDuration = globalTextFadeOutDuration
     }
 
     func restore(from config: ProjectConfig) {
@@ -450,6 +474,10 @@ class ProjectState: ObservableObject {
         if let overlays = config.textOverlays {
             textOverlays = overlays
         }
+        globalTextFadeInAt = config.globalTextFadeInAt ?? 0
+        globalTextFadeInDuration = config.globalTextFadeInDuration ?? 1
+        globalTextFadeOutAt = config.globalTextFadeOutAt ?? 0
+        globalTextFadeOutDuration = config.globalTextFadeOutDuration ?? 1
 
         restoreFile(bookmark: config.videoBookmark, path: config.videoPath) { url, bookmark in
             self.videoBookmark = bookmark.isEmpty ? nil : bookmark
@@ -523,6 +551,10 @@ class ProjectState: ObservableObject {
         barConfig = BarConfiguration()
         textOverlays = []
         selectedTextOverlayID = nil
+        globalTextFadeInAt = 0
+        globalTextFadeInDuration = 1
+        globalTextFadeOutAt = 0
+        globalTextFadeOutDuration = 1
     }
 
     // MARK: - Bookmark Helpers

@@ -34,7 +34,9 @@ struct TextOverlayItem: Codable, Identifiable, Equatable {
     var colorRed: Double
     var colorGreen: Double
     var colorBlue: Double
-    /// Video time (seconds) when fade-in completes (text fully visible).
+    /// When true, use project's global fade in/out timing. When false, use this item's fade fields.
+    var fadeInOutWithOthers: Bool
+    /// Video time (seconds) when fade-in completes (text fully visible). Used when fadeInOutWithOthers is false.
     var fadeInAt: Double
     /// Duration of fade-in in seconds.
     var fadeInDuration: Double
@@ -50,6 +52,7 @@ struct TextOverlayItem: Codable, Identifiable, Equatable {
         positionY: Double = 0.1,
         fontSize: Double = 48,
         colorRed: Double = 1, colorGreen: Double = 1, colorBlue: Double = 1,
+        fadeInOutWithOthers: Bool = true,
         fadeInAt: Double = 0, fadeInDuration: Double = 1,
         fadeOutAt: Double = 0, fadeOutDuration: Double = 1
     ) {
@@ -61,10 +64,51 @@ struct TextOverlayItem: Codable, Identifiable, Equatable {
         self.colorRed = colorRed
         self.colorGreen = colorGreen
         self.colorBlue = colorBlue
+        self.fadeInOutWithOthers = fadeInOutWithOthers
         self.fadeInAt = fadeInAt
         self.fadeInDuration = fadeInDuration
         self.fadeOutAt = fadeOutAt
         self.fadeOutDuration = fadeOutDuration
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, text, positionX, positionY, fontSize
+        case colorRed, colorGreen, colorBlue
+        case fadeInOutWithOthers, fadeInAt, fadeInDuration, fadeOutAt, fadeOutDuration
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        text = try c.decode(String.self, forKey: .text)
+        positionX = try c.decode(Double.self, forKey: .positionX)
+        positionY = try c.decode(Double.self, forKey: .positionY)
+        fontSize = try c.decode(Double.self, forKey: .fontSize)
+        colorRed = try c.decode(Double.self, forKey: .colorRed)
+        colorGreen = try c.decode(Double.self, forKey: .colorGreen)
+        colorBlue = try c.decode(Double.self, forKey: .colorBlue)
+        fadeInOutWithOthers = try c.decodeIfPresent(Bool.self, forKey: .fadeInOutWithOthers) ?? true
+        fadeInAt = try c.decode(Double.self, forKey: .fadeInAt)
+        fadeInDuration = try c.decode(Double.self, forKey: .fadeInDuration)
+        fadeOutAt = try c.decode(Double.self, forKey: .fadeOutAt)
+        fadeOutDuration = try c.decode(Double.self, forKey: .fadeOutDuration)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(text, forKey: .text)
+        try c.encode(positionX, forKey: .positionX)
+        try c.encode(positionY, forKey: .positionY)
+        try c.encode(fontSize, forKey: .fontSize)
+        try c.encode(colorRed, forKey: .colorRed)
+        try c.encode(colorGreen, forKey: .colorGreen)
+        try c.encode(colorBlue, forKey: .colorBlue)
+        try c.encode(fadeInOutWithOthers, forKey: .fadeInOutWithOthers)
+        try c.encode(fadeInAt, forKey: .fadeInAt)
+        try c.encode(fadeInDuration, forKey: .fadeInDuration)
+        try c.encode(fadeOutAt, forKey: .fadeOutAt)
+        try c.encode(fadeOutDuration, forKey: .fadeOutDuration)
     }
 }
 
@@ -99,6 +143,11 @@ struct ProjectConfig: Codable, Identifiable {
     var particleConfig: ParticleConfiguration?
     var barConfig: BarConfiguration?
     var textOverlays: [TextOverlayItem]?
+    /// Global fade timing for text overlays when "fade in/out with others" is on.
+    var globalTextFadeInAt: Double?
+    var globalTextFadeInDuration: Double?
+    var globalTextFadeOutAt: Double?
+    var globalTextFadeOutDuration: Double?
 
     init(name: String) {
         self.id = UUID()

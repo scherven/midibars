@@ -46,6 +46,7 @@ struct VideoCanvasView: View {
 
                     if !project.textOverlays.isEmpty {
                         TextOverlayView(project: project, canvasSize: canvasSize)
+                            .allowsHitTesting(!project.isSettingPiano && !project.isAdjustingKeys)
                     }
                 }
                 .frame(width: canvasSize.width, height: canvasSize.height)

@@ -8,6 +8,8 @@ struct EditorView: View {
     let lastSaveWasAuto: Bool
     let onManualSave: () -> Void
     @EnvironmentObject var store: ProjectStore
+    @SceneStorage("midibars.midiViewerExpanded") private var midiViewerExpanded: Bool = true
+    @SceneStorage("midibars.audioViewerExpanded") private var audioViewerExpanded: Bool = true
 
     private var projectName: String {
         store.project(for: projectID)?.name ?? "Untitled"
@@ -63,13 +65,13 @@ struct EditorView: View {
                     VideoCanvasView(project: project)
                     if project.midiURL != nil {
                         Divider()
-                        MIDIPianoRollPanel(project: project)
-                            .frame(height: 120)
+                        MIDIPianoRollPanel(project: project, isExpanded: $midiViewerExpanded)
+                            .frame(height: midiViewerExpanded ? 120 : 32)
                     }
                     if project.audioURL != nil {
                         Divider()
-                        AudioWaveformPanel(project: project)
-                            .frame(height: 120)
+                        AudioWaveformPanel(project: project, isExpanded: $audioViewerExpanded)
+                            .frame(height: audioViewerExpanded ? 120 : 32)
                     }
                 }
             }

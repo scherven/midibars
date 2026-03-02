@@ -6,6 +6,7 @@
 - [ ] make title controls better
 - [ ] export as video
 - [ ] stop flicker when you open and it was on a project
+- [ ] make midi & mp3 sections collapsible
 
 
 

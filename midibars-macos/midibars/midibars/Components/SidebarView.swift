@@ -50,7 +50,7 @@ struct SidebarView: View {
                 }
 
                 DisclosureGroup(isExpanded: $textExpanded) {
-                    textSectionContent
+                    TextOverlaySectionView(project: project)
                 } label: {
                     SectionHeader(title: "Text / Titles", icon: "textformat")
                 }
@@ -127,16 +127,12 @@ struct SidebarView: View {
                         .controlSize(.small)
                 }
             }
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Color:")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                HStack(spacing: 6) {
-                    colorChannelField("R", value: barBinding(\.colorRed))
-                    colorChannelField("G", value: barBinding(\.colorGreen))
-                    colorChannelField("B", value: barBinding(\.colorBlue))
-                }
-            }
+            ColorPicker("Color:", selection: rgbBinding(
+                red: barBinding(\.colorRed),
+                green: barBinding(\.colorGreen),
+                blue: barBinding(\.colorBlue)
+            ), supportsOpacity: false)
+            .font(.caption)
         }
         .padding(.top, 4)
     }
@@ -170,6 +166,20 @@ struct SidebarView: View {
                     Slider(value: particleBinding(\.speed), in: 20...300)
                         .controlSize(.small)
                 }
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Spread:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Slider(value: particleBinding(\.emissionAngleRange), in: 10...180)
+                    .controlSize(.small)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Swirl:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Slider(value: particleBinding(\.swirlStrength), in: -5...5)
+                    .controlSize(.small)
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text("Scale (size):")
@@ -218,11 +228,12 @@ struct SidebarView: View {
                 .toggleStyle(.switch)
                 .controlSize(.small)
             if !project.particleConfig.useNoteColor {
-                HStack(spacing: 6) {
-                    colorChannelField("R", value: particleBinding(\.particleColorRed))
-                    colorChannelField("G", value: particleBinding(\.particleColorGreen))
-                    colorChannelField("B", value: particleBinding(\.particleColorBlue))
-                }
+                ColorPicker("Color:", selection: rgbBinding(
+                    red: particleBinding(\.particleColorRed),
+                    green: particleBinding(\.particleColorGreen),
+                    blue: particleBinding(\.particleColorBlue)
+                ), supportsOpacity: false)
+                .font(.caption)
             }
         }
         .padding(.top, 4)
@@ -235,170 +246,19 @@ struct SidebarView: View {
         )
     }
 
-    // MARK: - Text / Titles
-
-    private var textSectionContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button {
-                project.textOverlays.append(TextOverlayItem())
-                project.selectedTextOverlayID = project.textOverlays.last?.id
-            } label: {
-                Label("Add Text Box", systemImage: "plus.circle")
-                    .frame(maxWidth: .infinity)
-                    .font(.caption)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-
-            textOverlays()
-
-            if let id = project.selectedTextOverlayID,
-               let index = project.textOverlays.firstIndex(where: { $0.id == id }) {
-                textOverlayEditor(binding: Binding(
-                    get: { index < project.textOverlays.count ? project.textOverlays[index] : TextOverlayItem() },
-                    set: { var arr = project.textOverlays; arr[index] = $0; project.textOverlays = arr }
-                ))
-                Button("Remove") {
-                    project.textOverlays.removeAll { $0.id == id }
-                    project.selectedTextOverlayID = project.textOverlays.first?.id
-                }
-                .font(.caption)
-                .foregroundStyle(.red)
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.top, 4)
-    }
-    
-    private func textOverlays() -> some View {
-        ForEach(project.textOverlays) { item in
-            Button {
-                project.selectedTextOverlayID = item.id
-            } label: {
-                textOverlay(item: item)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-    
-    private func textOverlay(item: TextOverlayItem) -> some View {
-        HStack {
-            Text(item.text.isEmpty ? "Text" : String(item.text.prefix(20)))
-                .lineLimit(1)
-                .font(.caption)
-            Spacer()
-            if project.selectedTextOverlayID == item.id {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.caption2)
-//                    .foregroundStyle(.accent)
-            }
-        }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 6)
-        .background(project.selectedTextOverlayID == item.id ? Color.accentColor.opacity(0.2) : Color.clear)
-        .contentShape(Rectangle())
-    }
-
-    private func textOverlayEditor(binding: Binding<TextOverlayItem>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            TextField("Text", text: binding.text)
-                .textFieldStyle(.roundedBorder)
-                .font(.caption)
-
-            HStack(spacing: 2) {
-                Text("Font size:")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                TextField("", value: binding.fontSize, format: .number.precision(.fractionLength(0)))
-                    .font(.caption)
-                    .monospacedDigit()
-                    .textFieldStyle(.plain)
-                    .frame(width: 36)
-            }
-            HStack(spacing: 6) {
-                colorChannelField("R", value: binding.colorRed)
-                colorChannelField("G", value: binding.colorGreen)
-                colorChannelField("B", value: binding.colorBlue)
-            }
-
-            Group {
-                HStack(spacing: 2) {
-                    Text("Position X:")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    TextField("", value: binding.positionX, format: .number.precision(.fractionLength(2)))
-                        .font(.caption)
-                        .monospacedDigit()
-                        .textFieldStyle(.plain)
-                        .frame(width: 40)
-                }
-                HStack(spacing: 2) {
-                    Text("Position Y:")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    TextField("", value: binding.positionY, format: .number.precision(.fractionLength(2)))
-                        .font(.caption)
-                        .monospacedDigit()
-                        .textFieldStyle(.plain)
-                        .frame(width: 40)
+    private func rgbBinding(red: Binding<Double>, green: Binding<Double>, blue: Binding<Double>) -> Binding<Color> {
+        Binding<Color>(
+            get: {
+                Color(red: red.wrappedValue, green: green.wrappedValue, blue: blue.wrappedValue)
+            },
+            set: { newColor in
+                if let components = NSColor(newColor).usingColorSpace(.sRGB) {
+                    red.wrappedValue = Double(components.redComponent)
+                    green.wrappedValue = Double(components.greenComponent)
+                    blue.wrappedValue = Double(components.blueComponent)
                 }
             }
-
-            Text("Fade in (video time)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            HStack(spacing: 4) {
-                Text("At (s):")
-                    .font(.caption2)
-                TextField("", value: binding.fadeInAt, format: .number.precision(.fractionLength(1)))
-                    .font(.caption)
-                    .monospacedDigit()
-                    .textFieldStyle(.plain)
-                    .frame(width: 36)
-                Text("Dur:")
-                    .font(.caption2)
-                TextField("", value: binding.fadeInDuration, format: .number.precision(.fractionLength(1)))
-                    .font(.caption)
-                    .monospacedDigit()
-                    .textFieldStyle(.plain)
-                    .frame(width: 36)
-            }
-            Text("Fade out (0 = stay on)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            HStack(spacing: 4) {
-                Text("At (s):")
-                    .font(.caption2)
-                TextField("", value: binding.fadeOutAt, format: .number.precision(.fractionLength(1)))
-                    .font(.caption)
-                    .monospacedDigit()
-                    .textFieldStyle(.plain)
-                    .frame(width: 36)
-                Text("Dur:")
-                    .font(.caption2)
-                TextField("", value: binding.fadeOutDuration, format: .number.precision(.fractionLength(1)))
-                    .font(.caption)
-                    .monospacedDigit()
-                    .textFieldStyle(.plain)
-                    .frame(width: 36)
-            }
-        }
-        .padding(8)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(6)
-    }
-
-    private func colorChannelField(_ label: String, value: Binding<Double>) -> some View {
-        HStack(spacing: 2) {
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            TextField("", value: value, format: .number.precision(.fractionLength(2)))
-                .font(.caption)
-                .monospacedDigit()
-                .textFieldStyle(.plain)
-                .frame(width: 32)
-        }
+        )
     }
 
     // MARK: - Transform
