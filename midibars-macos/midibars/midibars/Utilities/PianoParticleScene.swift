@@ -38,6 +38,33 @@ class PianoParticleScene: SKScene {
         return SKTexture(image: image)
     }()
 
+    private static let mistTexture: SKTexture = {
+        let diameter: CGFloat = 64
+        let image = NSImage(size: NSSize(width: diameter, height: diameter), flipped: false) { rect in
+            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let center = CGPoint(x: diameter / 2, y: diameter / 2)
+            let radius = diameter / 2
+            guard let gradient = CGGradient(
+                colorsSpace: colorSpace,
+                colors: [
+                    NSColor(white: 1.0, alpha: 0.5).cgColor,
+                    NSColor(white: 1.0, alpha: 0.15).cgColor,
+                    NSColor(white: 1.0, alpha: 0.0).cgColor
+                ] as CFArray,
+                locations: [0.0, 0.3, 1.0]
+            ) else { return false }
+            ctx.drawRadialGradient(
+                gradient,
+                startCenter: center, startRadius: 0,
+                endCenter: center, endRadius: radius,
+                options: .drawsAfterEndLocation
+            )
+            return true
+        }
+        return SKTexture(image: image)
+    }()
+
     override init(size: CGSize) {
         super.init(size: size)
         backgroundColor = .clear
@@ -73,6 +100,10 @@ class PianoParticleScene: SKScene {
             y: (1 - normalizedPoint.y) * size.height
         )
 
+        if config.mistEnabled && config.mistStrength > 0 {
+            emitMist(at: position, color: color, velocity: velScale)
+        }
+
         let emitter = SKEmitterNode()
 
         if config.useCircleParticle {
@@ -81,7 +112,7 @@ class PianoParticleScene: SKScene {
             emitter.particleTexture = SKTexture(imageNamed: name)
         }
 
-        emitter.particlePositionRange = CGVector(dx: 8, dy: 0)
+        emitter.particlePositionRange = CGVector(dx: 12, dy: 0)
 
         emitter.particleBirthRate = CGFloat(config.birthRate) * velScale * CGFloat(particleFactor)
         emitter.numParticlesToEmit = Int(Double(config.numToEmit) * Double(velScale) * particleFactor)
@@ -126,6 +157,43 @@ class PianoParticleScene: SKScene {
         addChild(emitter)
 
         let totalLife = Double(emitter.particleLifetime + emitter.particleLifetimeRange) + 0.1
+        emitter.run(.sequence([
+            .wait(forDuration: totalLife),
+            .removeFromParent()
+        ]))
+    }
+
+    private func emitMist(at position: CGPoint, color: NSColor, velocity: CGFloat) {
+        let config = particleConfig
+        let strength = CGFloat(config.mistStrength) * max(0.3, velocity)
+
+        let emitter = SKEmitterNode()
+        emitter.particleTexture = Self.mistTexture
+        emitter.particlePositionRange = CGVector(dx: 20, dy: 0)
+        emitter.particleBirthRate = 0
+        emitter.numParticlesToEmit = 8
+        emitter.emissionAngle = .pi / 2
+        emitter.emissionAngleRange = .pi / 6
+        emitter.particleLifetime = 2.0
+        emitter.particleLifetimeRange = 0.8
+        emitter.particleSpeed = 25
+        emitter.particleSpeedRange = 20
+        emitter.xAcceleration = 0
+        emitter.yAcceleration = 15
+        emitter.particleScale = 0.6
+        emitter.particleScaleRange = 0.3
+        emitter.particleScaleSpeed = -0.1
+        emitter.particleAlpha = strength * 0.5
+        emitter.particleAlphaSpeed = -0.2
+        emitter.particleAlphaRange = 0.15
+        emitter.particleColor = color
+        emitter.particleColorBlendFactor = 0.6
+        emitter.particleBlendMode = .alpha
+        emitter.position = position
+        emitter.zPosition = -1
+        addChild(emitter)
+
+        let totalLife = 3.0
         emitter.run(.sequence([
             .wait(forDuration: totalLife),
             .removeFromParent()

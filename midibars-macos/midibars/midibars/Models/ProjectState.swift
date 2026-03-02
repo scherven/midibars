@@ -70,6 +70,8 @@ class ProjectState: ObservableObject {
     @Published var globalTextFadeInDuration: Double = 1
     @Published var globalTextFadeOutAt: Double = 0
     @Published var globalTextFadeOutDuration: Double = 1
+    /// Global font for all text overlays (empty = system default).
+    @Published var globalTextFontName: String = ""
     let particleScene = PianoParticleScene()
     private var previouslyActiveNotes: Set<UInt8> = []
     private let blackKeyWidthRatio: Double = 0.55
@@ -439,6 +441,7 @@ class ProjectState: ObservableObject {
         config.globalTextFadeInDuration = globalTextFadeInDuration
         config.globalTextFadeOutAt = globalTextFadeOutAt
         config.globalTextFadeOutDuration = globalTextFadeOutDuration
+        config.globalTextFontName = globalTextFontName.isEmpty ? nil : globalTextFontName
     }
 
     func restore(from config: ProjectConfig) {
@@ -478,6 +481,7 @@ class ProjectState: ObservableObject {
         globalTextFadeInDuration = config.globalTextFadeInDuration ?? 1
         globalTextFadeOutAt = config.globalTextFadeOutAt ?? 0
         globalTextFadeOutDuration = config.globalTextFadeOutDuration ?? 1
+        globalTextFontName = config.globalTextFontName ?? ""
 
         restoreFile(bookmark: config.videoBookmark, path: config.videoPath) { url, bookmark in
             self.videoBookmark = bookmark.isEmpty ? nil : bookmark
@@ -555,6 +559,7 @@ class ProjectState: ObservableObject {
         globalTextFadeInDuration = 1
         globalTextFadeOutAt = 0
         globalTextFadeOutDuration = 1
+        globalTextFontName = ""
     }
 
     // MARK: - Bookmark Helpers

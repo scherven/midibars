@@ -18,7 +18,7 @@ struct ParticleConfiguration: Codable, Equatable {
     // MARK: - Speed
 
     var speed: Double = 120
-    var speedRange: Double = 60
+    var speedRange: Double = 100
 
     // MARK: - Acceleration
 
@@ -27,8 +27,8 @@ struct ParticleConfiguration: Codable, Equatable {
 
     // MARK: - Scale
 
-    var scale: Double = 0.2
-    var scaleRange: Double = 0.12
+    var scale: Double = 0.06
+    var scaleRange: Double = 0.04
     var scaleSpeed: Double = -0.15
 
     // MARK: - Rotation (swirl)
@@ -68,4 +68,10 @@ struct ParticleConfiguration: Codable, Equatable {
 
     var useCircleParticle: Bool = true
     var customTextureName: String? = nil
+
+    // MARK: - Mist
+
+    /// Subtle backing mist that emits with notes (0 = off, 1 = full).
+    var mistEnabled: Bool = true
+    var mistStrength: Double = 0.35
 }

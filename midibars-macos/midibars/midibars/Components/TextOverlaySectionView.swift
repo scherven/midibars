@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Text / Titles section for the sidebar. Each overlay is an expandable card with its own options.
 struct TextOverlaySectionView: View {
@@ -18,10 +19,31 @@ struct TextOverlaySectionView: View {
         .padding(.top, 4)
     }
 
-    // MARK: - Global Fade (single setting for all titles that "fade with others")
+    // MARK: - Global Fade & Font (single settings for all titles)
+
+    private var availableFontNamesForPicker: [String] {
+        let families = ["System"] + NSFontManager.shared.availableFontFamilies.sorted()
+        let current = project.globalTextFontName
+        if !current.isEmpty && !families.contains(current) {
+            return [current] + families
+        }
+        return families
+    }
 
     private var globalFadeSection: some View {
         VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                sectionLabel("Font")
+                Picker("Font", selection: $project.globalTextFontName) {
+                    ForEach(availableFontNamesForPicker, id: \.self) { name in
+                        Text(name.isEmpty ? "System" : name)
+                            .tag(name.isEmpty ? "" : name)
+                    }
+                }
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
+                .font(.caption)
+            }
             HStack {
                 sectionLabel("Fade In / Out")
                 Spacer()

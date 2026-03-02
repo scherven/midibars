@@ -148,6 +148,7 @@ struct ProjectConfig: Codable, Identifiable {
     var globalTextFadeInDuration: Double?
     var globalTextFadeOutAt: Double?
     var globalTextFadeOutDuration: Double?
+    var globalTextFontName: String?
 
     init(name: String) {
         self.id = UUID()

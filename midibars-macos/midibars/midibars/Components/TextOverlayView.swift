@@ -22,8 +22,11 @@ struct TextOverlayView: View {
     private func textView(for item: TextOverlayItem) -> some View {
         let opacity = opacityFor(item)
         let isSelected = project.selectedTextOverlayID == item.id
+        let font: Font = project.globalTextFontName.isEmpty
+            ? .system(size: item.fontSize, weight: .medium)
+            : .custom(project.globalTextFontName, size: item.fontSize)
         return Text(item.text)
-            .font(.system(size: item.fontSize, weight: .medium))
+            .font(font)
             .foregroundStyle(
                 Color(
                     red: item.colorRed,

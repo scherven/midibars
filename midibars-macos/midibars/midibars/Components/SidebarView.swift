@@ -185,7 +185,7 @@ struct SidebarView: View {
                 Text("Scale (size):")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Slider(value: particleBinding(\.scale), in: 0.05...0.8)
+                Slider(value: particleBinding(\.scale), in: 0.02...0.5)
                     .controlSize(.small)
             }
             VStack(alignment: .leading, spacing: 4) {
@@ -220,6 +220,19 @@ struct SidebarView: View {
                         .textFieldStyle(.plain)
                         .frame(width: 36)
                     Slider(value: particleBinding(\.sustainedEmitInterval), in: 0...0.2)
+                        .controlSize(.small)
+                }
+            }
+            Toggle("Mist", isOn: particleBinding(\.mistEnabled))
+                .font(.caption)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            if project.particleConfig.mistEnabled {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Mist strength:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Slider(value: particleBinding(\.mistStrength), in: 0.1...1.0)
                         .controlSize(.small)
                 }
             }
