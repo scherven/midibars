@@ -115,8 +115,11 @@ class VideoExporter: ObservableObject {
     @Published var isFinished = false
     @Published var errorMessage: String?
     @Published var outputURL: URL?
+    /// Recent frame render times in seconds (slower frames = harder work). Kept for speed wave UI.
+    @Published var frameTimeSamples: [TimeInterval] = []
 
     private var exportTask: Task<Void, Never>?
+    private static let maxFrameTimeSamples = 80
 
     func startExport(project: ProjectState, projectName: String) {
         let panel = NSSavePanel()
@@ -135,11 +138,19 @@ class VideoExporter: ObservableObject {
         errorMessage = nil
         progress = 0
         exportStartDate = Date()
+        frameTimeSamples = []
 
         exportTask = Task.detached { [weak self] in
             do {
-                try await Self.performExport(snapshot: snapshot, outputURL: url) { p in
-                    Task { @MainActor in self?.progress = p }
+                try await Self.performExport(snapshot: snapshot, outputURL: url) { p, frameTime in
+                    Task { @MainActor in
+                        self?.progress = p
+                        guard let self else { return }
+                        self.frameTimeSamples.append(frameTime)
+                        if self.frameTimeSamples.count > Self.maxFrameTimeSamples {
+                            self.frameTimeSamples.removeFirst()
+                        }
+                    }
                 }
                 await MainActor.run {
                     self?.isExporting = false
@@ -185,6 +196,7 @@ class VideoExporter: ObservableObject {
         progress = 0
         exportStartDate = nil
         outputURL = nil
+        frameTimeSamples = []
     }
 
     // MARK: - Export Pipeline
@@ -192,7 +204,7 @@ class VideoExporter: ObservableObject {
     nonisolated private static func performExport(
         snapshot: ExportSnapshot,
         outputURL: URL,
-        progressHandler: @Sendable @escaping (Double) -> Void
+        progressHandler: @Sendable @escaping (Double, TimeInterval) -> Void
     ) async throws {
         var outputWidth = 1920
         var outputHeight = 1080
@@ -214,6 +226,12 @@ class VideoExporter: ObservableObject {
                 let nomFPS = try await track.load(.nominalFrameRate)
                 if nomFPS > 0 { fps = Double(nomFPS) }
             }
+        }
+
+        // For 90° or 270° user rotation, output frame must be portrait (swap width/height).
+        let normalizedRotation = (snapshot.videoRotation.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360)
+        if normalizedRotation == 90 || normalizedRotation == 270 {
+            swap(&outputWidth, &outputHeight)
         }
 
         if totalDuration <= 0, let audioURL = snapshot.audioURL {
@@ -371,6 +389,7 @@ class VideoExporter: ObservableObject {
         let w = CGFloat(outputWidth)
         let h = CGFloat(outputHeight)
         let colorSpace = CGColorSpaceCreateDeviceRGB()
+        var frameStartTime = CFAbsoluteTimeGetCurrent()
 
         for frame in 0..<totalFrames {
             try Task.checkCancellation()
@@ -447,7 +466,10 @@ class VideoExporter: ObservableObject {
             }
             adaptor.append(pixelBuffer, withPresentationTime: cmTime)
 
-            progressHandler(Double(frame) / Double(totalFrames))
+            let frameEndTime = CFAbsoluteTimeGetCurrent()
+            let frameDuration = frameEndTime - frameStartTime
+            frameStartTime = frameEndTime
+            progressHandler(Double(frame) / Double(totalFrames), frameDuration)
         }
 
         videoInput.markAsFinished()
@@ -461,7 +483,7 @@ class VideoExporter: ObservableObject {
         if writer.status == .failed, let err = writer.error {
             throw err
         }
-        progressHandler(1.0)
+        progressHandler(1.0, 0)
     }
 
     // MARK: - Video Frame Drawing
@@ -779,8 +801,10 @@ class VideoExporter: ObservableObject {
         ctx.saveGState()
         ctx.setBlendMode(.plusLighter)
 
+        // Match SpriteKit: scale is a multiplier of texture size (default texture = 32px); use half for radius.
+        let textureRadius: CGFloat = 16
         for p in particles where p.alpha > 0.005 && p.scale > 0.001 {
-            let radius = max(1, p.scale * w * 0.5)
+            let radius = max(1, textureRadius * p.scale)
             let center = CGPoint(x: p.x, y: p.y)
             let a = min(1, max(0, p.alpha))
 

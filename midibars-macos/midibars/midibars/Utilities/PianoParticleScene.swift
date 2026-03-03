@@ -69,8 +69,18 @@ class PianoParticleScene: SKScene {
         super.init(size: size)
         backgroundColor = .clear
         scaleMode = .resizeFill
+        setupNoiseField()
     }
 
+    private func setupNoiseField() {
+        let noiseField = SKFieldNode.noiseField(withSmoothness: 0.5, animationSpeed: 0.4)
+        noiseField.strength = 0.6
+        noiseField.falloff = 0
+        noiseField.region = SKRegion(size: CGSize(width: 1e5, height: 1e5))
+        noiseField.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        addChild(noiseField)
+    }
+    
     override convenience init() {
         self.init(size: CGSize(width: 1, height: 1))
     }
@@ -154,6 +164,99 @@ class PianoParticleScene: SKScene {
 
         emitter.particleBlendMode = .add
         emitter.position = position
+        
+//        // 1. WIDER SPAWN AREA - match the width of the note bar
+//        // Change from a point source to a wide horizontal spread
+//        emitter.particlePositionRange = CGVector(dx: 40, dy: 1)  // was dx: 12, dy: 0
+//        // Add dy spread so particles don't all spawn on the exact same horizontal line
+//
+//        // 2. FAN OUT THE EMISSION ANGLE - full upward cone, not a narrow beam
+//        emitter.emissionAngle = CGFloat.pi / 2               // straight up
+//        emitter.emissionAngleRange = CGFloat.pi * 0.75       // ±67.5° wide fan (was likely narrow)
+//
+//        // 3. ADD TURBULENCE - this is the biggest fix for "stripes"
+//        // Add a noise field to your scene to break up the columnar pattern
+        let noiseField = SKFieldNode.noiseField(withSmoothness: 0.5, animationSpeed: 0.3)
+        noiseField.strength = 0.8
+        noiseField.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        noiseField.region = SKRegion(size: CGSize(width: 1e5, height: 1e5))
+        noiseField.falloff = 0
+        addChild(noiseField)
+//
+//        // 4. RANDOMIZE SPEED MORE — stripes happen when all particles travel same distance
+        emitter.particleSpeed = CGFloat(config.speed) * velScale * CGFloat(popFactor)
+        emitter.particleSpeedRange = CGFloat(config.speed) * 1.2  // range = 120% of base speed
+//
+//        // 5. ADD DRIFT — slight sideways acceleration breaks up columns
+        emitter.xAcceleration = CGFloat.random(in: -30...30)  // random sideways drift per emitter
+//
+//        // 6. SCALE UP PARTICLES SLIGHTLY + more range = gaps fill in
+//        emitter.particleScale = CGFloat(config.scale) * CGFloat(popFactor) * 1.3
+//        emitter.particleScaleRange = CGFloat(config.scaleRange) + 0.4
+//
+//        // 7. STAGGER BIRTH — burst mode creates "wall" of simultaneous particles
+//        // Increase birth rate but reduce numToEmit so they trickle out, not fire at once
+        emitter.particleBirthRate = CGFloat(config.birthRate) * velScale * CGFloat(particleFactor) * 2.0
+//        emitter.numParticlesToEmit = Int(Double(config.numToEmit) * Double(velScale) * particleFactor * 0.6)
+//
+//        // Bright central burst - fires in all directions
+//        let emitter3 = SKEmitterNode()
+//        emitter3.emissionAngleRange = .pi * 2       // 360° burst
+//        emitter3.particleSpeed = 120
+//        emitter3.particleSpeedRange = 80
+//        emitter3.particleLifetime = 0.6             // short-lived, snappy
+//        emitter3.particleBirthRate = 800
+//        emitter3.numParticlesToEmit = 40
+//        emitter3.particleScale = 0.15
+//        emitter3.particleAlpha = 1.0
+//        emitter3.particleAlphaSpeed = -2.5          // fast fade
+//        emitter3.particleBlendMode = .add
+//        emitter3.position = position
+//        
+//        // PRIMARY FOUNTAIN - tight upward column with spread
+//        let emitter2 = SKEmitterNode()
+//        emitter2.emissionAngle = .pi / 2
+//        emitter2.emissionAngleRange = .pi / 5       // ~36° cone
+//        emitter2.particleSpeed = 200
+//        emitter2.particleSpeedRange = 120
+//        emitter2.particleLifetime = 3.5
+//        emitter2.yAcceleration = -40               // slight gravity drag
+//        emitter2.particleScale = 0.08
+//        emitter2.particleScaleSpeed = 0.03         // grows as it rises
+//        emitter2.particleBirthRate = 300
+//        emitter2.particleAlpha = 0.7
+//        emitter2.particleAlphaSpeed = -0.15
+//        emitter2.position = position
+//        
+//
+//        // SECONDARY DRIFT LAYER - wider, slower, gives the "tree" width at top
+//        let driftEmitter = SKEmitterNode()
+//        driftEmitter.emissionAngleRange = .pi * 0.6
+//        driftEmitter.particleSpeed = 60
+//        driftEmitter.particleLifetime = 5.0       // lives long = reaches top of screen
+//        driftEmitter.particleScale = 0.12
+//        driftEmitter.particleScaleSpeed = 0.05
+//        driftEmitter.yAcceleration = 10
+//        driftEmitter.xAcceleration = CGFloat.random(in: -15...15)
+//        driftEmitter.position = position
+//        
+//        emitter2.particleTexture = Self.defaultTexture
+//        emitter3.particleTexture = Self.defaultTexture
+//        driftEmitter.particleTexture = Self.defaultTexture
+//        emitter2.particleColor = color
+//        emitter3.particleColor = color
+//        driftEmitter.particleColor = color
+//        emitter2.particleColorBlendFactor = 1.0
+//        emitter3.particleColorBlendFactor = 1.0
+//        driftEmitter.particleColorBlendFactor = 1.0
+        
+        runEmitter(emitter)
+//        runEmitter(emitter2)
+//        runEmitter(emitter3)
+//        runEmitter(driftEmitter)
+    }
+    
+    private func runEmitter(_ emitter: SKEmitterNode) {
         addChild(emitter)
 
         let totalLife = Double(emitter.particleLifetime + emitter.particleLifetimeRange) + 0.1

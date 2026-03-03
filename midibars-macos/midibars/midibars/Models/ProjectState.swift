@@ -170,6 +170,14 @@ class ProjectState: ObservableObject {
 
     // MARK: - Playback
 
+    func stopPlayback() {
+        guard isPlaying else { return }
+        player?.pause()
+        audioPlayer?.pause()
+        stopPlaybackTimer()
+        isPlaying = false
+    }
+
     func togglePlayback() {
         guard player != nil || audioPlayer != nil else { return }
 
