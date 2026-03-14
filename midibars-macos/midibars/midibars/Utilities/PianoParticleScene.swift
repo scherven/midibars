@@ -1,9 +1,7 @@
 import SpriteKit
 
 class PianoParticleScene: SKScene {
-    var particleConfig = ParticleConfiguration() {
-        didSet { /* no per-config setup needed */ }
-    }
+    var particleConfig = ParticleConfiguration()
 
     // MARK: - State
 
@@ -99,8 +97,7 @@ class PianoParticleScene: SKScene {
 
         guard dt > 0 else { return }
 
-        // Advance shared physics (SpriteKit: y increases upward → upSign = +1)
-        updateMidibarParticles(&particles, dt: dt, upSign: 1.0)
+        updateMidibarParticles(&particles, dt: dt)
 
         // Sync node pool to particle array
         syncNodes()
@@ -109,11 +106,10 @@ class PianoParticleScene: SKScene {
     // MARK: - Emission
 
     /// Emit particles at a SwiftUI-normalised position (origin top-left, 0–1).
-    /// `velocity` is MIDI velocity 0–1; `noteDuration` is note length in seconds (unused in new physics).
+    /// `velocity` is MIDI velocity 0–1.
     func emitParticles(atNormalized normalizedPoint: CGPoint,
                        color: NSColor,
-                       velocity: CGFloat,
-                       noteDuration: Double = 0)
+                       velocity: CGFloat)
     {
         guard particleConfig.enabled, size.width > 0, size.height > 0 else { return }
 
@@ -126,13 +122,7 @@ class PianoParticleScene: SKScene {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
 
-        let new = emitMidibarParticles(
-            at: pos,
-            noteColor: (r, g, b),
-            velocity: velocity,
-            config: particleConfig,
-            upSign: 1.0
-        )
+        let new = emitMidibarParticles(at: pos, noteColor: (r, g, b), velocity: velocity, config: particleConfig)
         particles.append(contentsOf: new)
     }
 

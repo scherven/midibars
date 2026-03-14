@@ -375,24 +375,20 @@ class ProjectState: ObservableObject {
             )
 
             let velocity: CGFloat
-            let noteDuration: Double
             if let note = midiData?.notes.first(where: {
                 $0.pitch == pitch &&
                 currentTime >= $0.startTime &&
                 currentTime < $0.startTime + $0.duration
             }) {
                 velocity = CGFloat(note.velocity) / 127.0
-                noteDuration = note.duration
             } else if let note = midiData?.notes.first(where: {
                 $0.pitch == pitch &&
                 $0.startTime >= previousTime &&
                 $0.startTime + $0.duration <= currentTime
             }) {
                 velocity = CGFloat(note.velocity) / 127.0
-                noteDuration = note.duration
             } else {
                 velocity = 0.8
-                noteDuration = 0
             }
 
             let color: NSColor
@@ -411,7 +407,7 @@ class ProjectState: ObservableObject {
                     alpha: 1
                 )
             }
-            particleScene.emitParticles(atNormalized: normalizedPoint, color: color, velocity: velocity, noteDuration: noteDuration)
+            particleScene.emitParticles(atNormalized: normalizedPoint, color: color, velocity: velocity)
         }
     }
 
@@ -621,30 +617,11 @@ class ProjectState: ObservableObject {
 
     private func resolveBookmark(_ data: Data) -> URL? {
         var isStale = false
-        do {
-            let url = try URL(
-                resolvingBookmarkData: data,
-                options: .withSecurityScope,
-                relativeTo: nil,
-                bookmarkDataIsStale: &isStale
-            )
+        if let url = try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
             _ = url.startAccessingSecurityScopedResource()
-            if isStale {
-                videoBookmark = createBookmark(for: url)
-            }
             return url
-        } catch {
-            do {
-                return try URL(
-                    resolvingBookmarkData: data,
-                    options: [],
-                    relativeTo: nil,
-                    bookmarkDataIsStale: &isStale
-                )
-            } catch {
-                return nil
-            }
         }
+        return try? URL(resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &isStale)
     }
 
     private func restoreFile(bookmark: Data?, path: String?, load: (URL, Data) -> Void) {

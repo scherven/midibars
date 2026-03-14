@@ -175,20 +175,6 @@ struct SidebarView: View {
                     .controlSize(.small)
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text("Swirl:")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Slider(value: particleBinding(\.swirlStrength), in: -5...5)
-                    .controlSize(.small)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Scale (size):")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Slider(value: particleBinding(\.scale), in: 0.02...0.5)
-                    .controlSize(.small)
-            }
-            VStack(alignment: .leading, spacing: 4) {
                 Text("Loud note pop:")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -200,13 +186,6 @@ struct SidebarView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Slider(value: particleBinding(\.loudNoteParticleMultiplier), in: 1.0...3.0)
-                    .controlSize(.small)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Long note swirl:")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Slider(value: particleBinding(\.longNoteSwirlMultiplier), in: 1.0...3.0)
                     .controlSize(.small)
             }
             VStack(alignment: .leading, spacing: 4) {

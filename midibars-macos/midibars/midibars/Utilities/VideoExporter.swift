@@ -442,7 +442,7 @@ class VideoExporter: ObservableObject {
                 previousMidiTime: &previousMidiTime,
                 w: w, h: h
             )
-            updateMidibarParticles(&particles, dt: CGFloat(dt), upSign: 1.0)
+            updateMidibarParticles(&particles, dt: CGFloat(dt))
             drawParticles(particles, in: ctx, w: w, h: h)
 
             // Text overlays
@@ -729,14 +729,7 @@ class VideoExporter: ObservableObject {
                 cb = CGFloat(config.particleColorBlue)
             }
 
-            // Delegate to the shared emitter (upSign = +1: flipped context has y increasing upward)
-            let new = emitMidibarParticles(
-                at: emitPos,
-                noteColor: (cr, cg, cb),
-                velocity: velocity,
-                config: config,
-                upSign: 1.0
-            )
+            let new = emitMidibarParticles(at: emitPos, noteColor: (cr, cg, cb), velocity: velocity, config: config)
             particles.append(contentsOf: new)
         }
     }
