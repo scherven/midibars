@@ -62,6 +62,20 @@ func keyFractionOnTopEdge(
     }
 }
 
+/// Returns the (left, right) fractional positions of a black key's bar, or nil if not computable.
+func blackKeyBoundaries(
+    note: Int, whiteIndexMap: [Int: Int], edges: [Double], widthRatio: Double
+) -> (Double, Double)? {
+    guard let leftIdx = whiteIndexMap[note - 1], leftIdx + 2 < edges.count else { return nil }
+    let boundary = edges[leftIdx + 1]
+    let avgWidth = ((edges[leftIdx + 1] - edges[leftIdx]) + (edges[leftIdx + 2] - edges[leftIdx + 1])) / 2
+    let bw = avgWidth * widthRatio
+    return (boundary - bw / 2, boundary + bw / 2)
+}
+
+/// Shared black key width ratio (black key width as fraction of adjacent white key average width).
+let blackKeyWidthRatio: Double = 0.55
+
 func pianoTopEdgePoint(
     fraction: CGFloat,
     topLeft: CGPoint,

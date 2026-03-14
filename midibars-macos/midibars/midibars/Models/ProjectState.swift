@@ -76,7 +76,6 @@ class ProjectState: ObservableObject {
 
     let particleScene = PianoParticleScene()
     private var previouslyActiveNotes: Set<UInt8> = []
-    private let blackKeyWidthRatio: Double = 0.55
 
     let canvasAspectRatio: CGFloat = 16.0 / 9.0
 

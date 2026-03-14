@@ -400,7 +400,10 @@ class VideoExporter: ObservableObject {
 
             CVPixelBufferLockBaseAddress(pixelBuffer, [])
 
-            let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer)!
+            guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+                CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+                continue
+            }
             let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
 
             guard let ctx = CGContext(
@@ -570,7 +573,6 @@ class VideoExporter: ObservableObject {
         let barMinHeight: CGFloat = 8
         let speed = spawnDist / CGFloat(barLeadTime)
         let cr = CGFloat(snapshot.barConfig.cornerRadius)
-        let blackKeyWidthRatio: Double = 0.55
         let whiteBarWidthRatio: Double = 0.6
 
         let barColor = CGColor(
@@ -594,8 +596,7 @@ class VideoExporter: ObservableObject {
 
             let lf: Double, rf: Double
             if isBlackKey(pitch) {
-                let fracs = blackKeyFracs(note: pitch, whiteIndexMap: whiteIndexMap, edges: edges, ratio: blackKeyWidthRatio)
-                guard fracs.0 < fracs.1 else { continue }
+                guard let fracs = blackKeyBoundaries(note: pitch, whiteIndexMap: whiteIndexMap, edges: edges, widthRatio: blackKeyWidthRatio) else { continue }
                 (lf, rf) = fracs
             } else {
                 guard let idx = whiteIndexMap[pitch] else { continue }
@@ -606,8 +607,8 @@ class VideoExporter: ObservableObject {
                 rf = keyRight - inset
             }
 
-            let pL = lerpPt(tl, tr, t: CGFloat(lf))
-            let pR = lerpPt(tl, tr, t: CGFloat(rf))
+            let pL = lerp(tl, tr, t: CGFloat(lf))
+            let pR = lerp(tl, tr, t: CGFloat(rf))
 
             let perpOff: CGFloat
             let curH: CGFloat
@@ -691,8 +692,6 @@ class VideoExporter: ObservableObject {
         let whites = whiteNotes(low: snapshot.pianoLowNote, high: snapshot.pianoHighNote)
         let whiteIndexMap = Dictionary(uniqueKeysWithValues: whites.enumerated().map { ($1, $0) })
         let edges = effectiveEdges(snapshot: snapshot, whiteCount: whites.count)
-        let blackKeyWidthRatio: Double = 0.55
-
         for pitch in notesToEmit {
             guard let fraction = keyFractionOnTopEdge(
                 pitch: Int(pitch), edges: edges, whiteIndexMap: whiteIndexMap, blackKeyWidthRatio: blackKeyWidthRatio
@@ -701,7 +700,7 @@ class VideoExporter: ObservableObject {
             // Emission position is in the flipped CG context (y-up, y=0 at bottom of frame)
             let tlPt = CGPoint(x: snapshot.pianoTopLeft.x * w, y: snapshot.pianoTopLeft.y * h)
             let trPt = CGPoint(x: snapshot.pianoTopRight.x * w, y: snapshot.pianoTopRight.y * h)
-            let emitPos = lerpPt(tlPt, trPt, t: fraction)
+            let emitPos = lerp(tlPt, trPt, t: fraction)
 
             let velocity: CGFloat
             if let note = midiData.notes.first(where: {
@@ -733,8 +732,6 @@ class VideoExporter: ObservableObject {
             particles.append(contentsOf: new)
         }
     }
-
-    // updateParticles removed — replaced by updateMidibarParticles from MidibarParticleSystem.swift
 
     /// Render particles using the midiplayer glow shader style:
     /// solid white core (inner 4% of radius) + max(0, 0.7 − √(r/outerR)) falloff.
@@ -900,19 +897,4 @@ class VideoExporter: ObservableObject {
         return defaultPianoEdges(whiteKeyCount: whiteCount)
     }
 
-    nonisolated private static func blackKeyFracs(
-        note: Int, whiteIndexMap: [Int: Int], edges: [Double], ratio: Double
-    ) -> (Double, Double) {
-        guard let leftIdx = whiteIndexMap[note - 1], leftIdx + 2 < edges.count else { return (0, 0) }
-        let boundary = edges[leftIdx + 1]
-        let leftWidth = edges[leftIdx + 1] - edges[leftIdx]
-        let rightWidth = edges[leftIdx + 2] - edges[leftIdx + 1]
-        let avgWidth = (leftWidth + rightWidth) / 2
-        let bw = avgWidth * ratio
-        return (boundary - bw / 2, boundary + bw / 2)
-    }
-
-    nonisolated private static func lerpPt(_ a: CGPoint, _ b: CGPoint, t: CGFloat) -> CGPoint {
-        CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
-    }
 }

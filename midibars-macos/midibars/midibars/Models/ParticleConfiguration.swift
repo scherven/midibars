@@ -6,7 +6,7 @@ struct ParticleConfiguration: Codable, Equatable {
     // MARK: - Emission
 
     /// Number of dust particles spawned per note event.
-    var numToEmit: Int = 8
+    var numToEmit: Double = 8
     /// Angle (degrees) for initial velocity direction; 90 = straight up.
     var emissionAngle: Double = 90
     /// Random spread around emissionAngle (degrees).

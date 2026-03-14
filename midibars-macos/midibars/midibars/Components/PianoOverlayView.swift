@@ -6,7 +6,6 @@ struct PianoOverlayView: View {
     @State private var activeEdge: Int?
 
     private let blackKeyHeightRatio: CGFloat = 0.62
-    private let blackKeyWidthRatio: Double = 0.55
     private let whiteBarWidthRatio: Double = 0.6
     private let barLeadTime: Double = 2.0
     private let barMinHeight: CGFloat = 8
@@ -59,8 +58,7 @@ struct PianoOverlayView: View {
                         }
 
                         for note in blacks {
-                            let (lf, rf) = blackKeyFracs(note: note, whiteIndexMap: whiteIndexMap, edges: edges)
-                            guard lf < rf else { continue }
+                            guard let (lf, rf) = blackKeyBoundaries(note: note, whiteIndexMap: whiteIndexMap, edges: edges, widthRatio: blackKeyWidthRatio) else { continue }
                             let path = quadrilateralPath(
                                 leftF: lf, rightF: rf,
                                 topG: 0, bottomG: Double(blackKeyHeightRatio),
@@ -193,8 +191,7 @@ struct PianoOverlayView: View {
             let lf: Double
             let rf: Double
             if isBlackKey(pitch) {
-                let fracs = blackKeyFracs(note: pitch, whiteIndexMap: whiteIndexMap, edges: edges)
-                guard fracs.0 < fracs.1 else { continue }
+                guard let fracs = blackKeyBoundaries(note: pitch, whiteIndexMap: whiteIndexMap, edges: edges, widthRatio: blackKeyWidthRatio) else { continue }
                 (lf, rf) = fracs
             } else {
                 guard let idx = whiteIndexMap[pitch] else { continue }
@@ -259,19 +256,6 @@ struct PianoOverlayView: View {
             return project.pianoWhiteKeyEdges
         }
         return defaultPianoEdges(whiteKeyCount: count)
-    }
-
-    private func blackKeyFracs(note: Int, whiteIndexMap: [Int: Int], edges: [Double]) -> (Double, Double) {
-        guard let leftIdx = whiteIndexMap[note - 1],
-              leftIdx + 2 < edges.count else {
-            return (0, 0)
-        }
-        let boundary = edges[leftIdx + 1]
-        let leftWidth = edges[leftIdx + 1] - edges[leftIdx]
-        let rightWidth = edges[leftIdx + 2] - edges[leftIdx + 1]
-        let avgWidth = (leftWidth + rightWidth) / 2
-        let bw = avgWidth * blackKeyWidthRatio
-        return (boundary - bw / 2, boundary + bw / 2)
     }
 
     // MARK: - Corner Interaction

@@ -189,6 +189,13 @@ struct SidebarView: View {
                     .controlSize(.small)
             }
             VStack(alignment: .leading, spacing: 4) {
+                Text("Number of particles:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Slider(value: particleBinding(\.numToEmit), in: 1...6)
+                    .controlSize(.small)
+            }
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Sustained emit (s):")
                     .font(.caption)
                     .foregroundStyle(.secondary)
