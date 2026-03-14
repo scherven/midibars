@@ -93,17 +93,7 @@ struct ExportSnapshot: @unchecked Sendable {
 }
 
 // MARK: - Export Particle
-
-private struct ExportParticle {
-    var x, y: CGFloat
-    var vx, vy: CGFloat
-    var age, maxAge: CGFloat
-    var scale, scaleSpeed: CGFloat
-    var alpha, alphaSpeed: CGFloat
-    var r, g, b: CGFloat
-
-    var isAlive: Bool { age < maxAge && alpha > 0.005 && scale > 0.001 }
-}
+// Particle type is MidibarParticle (shared with editor) — see MidibarParticleSystem.swift
 
 // MARK: - VideoExporter
 
@@ -381,7 +371,7 @@ class VideoExporter: ObservableObject {
         }
 
         let totalFrames = Int(ceil(totalDuration * fps))
-        var particles: [ExportParticle] = []
+        var particles: [MidibarParticle] = []
         var previouslyActiveNotes: Set<UInt8> = []
         var lastSustainedEmitTime: Double = 0
         var previousMidiTime: Double = 0
@@ -452,7 +442,7 @@ class VideoExporter: ObservableObject {
                 previousMidiTime: &previousMidiTime,
                 w: w, h: h
             )
-            updateParticles(&particles, dt: CGFloat(dt), config: snapshot.particleConfig)
+            updateMidibarParticles(&particles, dt: CGFloat(dt), upSign: 1.0)
             drawParticles(particles, in: ctx, w: w, h: h)
 
             // Text overlays
@@ -540,6 +530,8 @@ class VideoExporter: ObservableObject {
     }
 
     // MARK: - MIDI Bars
+    // Logic matches PianoOverlayView.drawMidiBars exactly. Export context is flipped (Y-up); we use
+    // the same bar math as the editor (up = toward top of canvas, spawnDist = distance to top).
 
     nonisolated private static func drawMidiBars(
         in ctx: CGContext, snapshot: ExportSnapshot, time: Double, w: CGFloat, h: CGFloat
@@ -560,13 +552,18 @@ class VideoExporter: ObservableObject {
         let lineLen = hypot(dx, dy)
         guard lineLen > 1 else { return }
 
-        // In flipped context: Y increases downward. "Up" toward top = negative Y.
+        // Same "up" as editor: perpendicular to top edge, pointing toward top of canvas.
+        // In export context Y increases upward (0=bottom, h=top), so "up" = toward top = positive Y.
         var upX = -dy / lineLen
         var upY = dx / lineLen
-        if upY > 0 { upX = -upX; upY = -upY }
+        if upY < 0 { upX = -upX; upY = -upY }
+
+        let rightX = dx / lineLen
+        let rightY = dy / lineLen
 
         let midY = (tl.y + tr.y) / 2
-        let spawnDist: CGFloat = abs(upY) > 0.001 ? abs(midY / upY) : midY
+        // Distance from piano line to top of canvas in the "up" direction (editor: top=0 so spawnDist=midY; here top=h so spawnDist=(h-midY)/upY).
+        let spawnDist: CGFloat = abs(upY) > 0.001 ? (h - midY) / upY : (h - midY)
         guard spawnDist > 1 else { return }
 
         let barLeadTime: Double = 2.0
@@ -575,9 +572,6 @@ class VideoExporter: ObservableObject {
         let cr = CGFloat(snapshot.barConfig.cornerRadius)
         let blackKeyWidthRatio: Double = 0.55
         let whiteBarWidthRatio: Double = 0.6
-
-        let rightX = dx / lineLen
-        let rightY = dy / lineLen
 
         let barColor = CGColor(
             red: CGFloat(snapshot.barConfig.colorRed),
@@ -591,6 +585,7 @@ class VideoExporter: ObservableObject {
             let start = note.startTime
             let dur = note.duration
             let pitch = Int(note.pitch)
+
             let noteH = max(barMinHeight, CGFloat(dur) * speed)
             let effectiveEnd = start + max(dur, Double(noteH / speed))
 
@@ -604,23 +599,27 @@ class VideoExporter: ObservableObject {
                 (lf, rf) = fracs
             } else {
                 guard let idx = whiteIndexMap[pitch] else { continue }
-                let kl = edges[idx]; let kr = edges[idx + 1]
-                let inset = (kr - kl) * (1 - whiteBarWidthRatio) / 2
-                lf = kl + inset; rf = kr - inset
+                let keyLeft = edges[idx]
+                let keyRight = edges[idx + 1]
+                let inset = (keyRight - keyLeft) * (1 - whiteBarWidthRatio) / 2
+                lf = keyLeft + inset
+                rf = keyRight - inset
             }
 
             let pL = lerpPt(tl, tr, t: CGFloat(lf))
             let pR = lerpPt(tl, tr, t: CGFloat(rf))
 
-            let perpOff: CGFloat, curH: CGFloat
+            let perpOff: CGFloat
+            let curH: CGFloat
             if midiTime < start {
                 let progress = CGFloat((midiTime - (start - barLeadTime)) / barLeadTime)
                 perpOff = spawnDist * (1 - progress)
                 curH = noteH
             } else {
                 let elapsed = CGFloat(midiTime - start)
+                let overshoot = speed * elapsed
                 perpOff = 0
-                curH = max(0, noteH - speed * elapsed)
+                curH = max(0, noteH - overshoot)
             }
             guard curH > 0.5 else { continue }
 
@@ -649,7 +648,7 @@ class VideoExporter: ObservableObject {
 
     nonisolated private static func emitParticlesForFrame(
         snapshot: ExportSnapshot, midiTime: Double,
-        particles: inout [ExportParticle],
+        particles: inout [MidibarParticle],
         previouslyActiveNotes: inout Set<UInt8>,
         lastSustainedEmitTime: inout Double,
         previousMidiTime: inout Double,
@@ -699,29 +698,27 @@ class VideoExporter: ObservableObject {
                 pitch: Int(pitch), edges: edges, whiteIndexMap: whiteIndexMap, blackKeyWidthRatio: blackKeyWidthRatio
             ) else { continue }
 
+            // Emission position is in the flipped CG context (y-up, y=0 at bottom of frame)
             let tlPt = CGPoint(x: snapshot.pianoTopLeft.x * w, y: snapshot.pianoTopLeft.y * h)
             let trPt = CGPoint(x: snapshot.pianoTopRight.x * w, y: snapshot.pianoTopRight.y * h)
             let emitPos = lerpPt(tlPt, trPt, t: fraction)
 
             let velocity: CGFloat
-            let noteDuration: Double
             if let note = midiData.notes.first(where: {
                 $0.pitch == pitch && midiTime >= $0.startTime && midiTime < $0.startTime + $0.duration
             }) {
                 velocity = CGFloat(note.velocity) / 127.0
-                noteDuration = note.duration
             } else if let note = midiData.notes.first(where: {
                 $0.pitch == pitch &&
                 $0.startTime >= prevTime &&
                 $0.startTime + $0.duration <= midiTime
             }) {
                 velocity = CGFloat(note.velocity) / 127.0
-                noteDuration = note.duration
             } else {
-                velocity = 0.8; noteDuration = 0
+                velocity = 0.8
             }
 
-            let (cr, cg, cb): (CGFloat, CGFloat, CGFloat)
+            let cr, cg, cb: CGFloat
             if config.useNoteColor {
                 cr = CGFloat(snapshot.barConfig.colorRed)
                 cg = CGFloat(snapshot.barConfig.colorGreen)
@@ -732,68 +729,24 @@ class VideoExporter: ObservableObject {
                 cb = CGFloat(config.particleColorBlue)
             }
 
-            let velScale = max(0.3, velocity)
-            let popFactor = 1 + Double(velocity) * (config.loudNotePopMultiplier - 1)
-            let particleFactor = 1 + Double(velocity) * (config.loudNoteParticleMultiplier - 1)
-            let durationCap = min(noteDuration, 2.0)
-            let swirlFactor = 1 + (durationCap / 2.0) * (config.longNoteSwirlMultiplier - 1)
-            _ = swirlFactor
-
-            let count = Int(Double(config.numToEmit) * Double(velScale) * particleFactor)
-            for _ in 0..<count {
-                let angleCenter = config.emissionAngle * .pi / 180
-                let angleRange = config.emissionAngleRange * .pi / 180
-                let angle = angleCenter + Double.random(in: -angleRange / 2 ... angleRange / 2)
-
-                let spd = (config.speed + Double.random(in: -config.speedRange / 2 ... config.speedRange / 2))
-                    * Double(velScale) * popFactor
-
-                let px = emitPos.x + CGFloat.random(in: -6 ... 6)
-                let py = emitPos.y
-
-                // In the flipped context, Y increases downward. Emission angle 90° = upward = negative Y.
-                let pvx = CGFloat(spd * cos(angle))
-                let pvy = CGFloat(-spd * sin(angle))
-
-                let lifetime = CGFloat(config.lifetime * Double(velScale))
-                    + CGFloat.random(in: CGFloat(-config.lifetimeRange / 2) ... CGFloat(config.lifetimeRange / 2))
-                let pScale = CGFloat(config.scale * popFactor)
-                    + CGFloat.random(in: CGFloat(-config.scaleRange / 2) ... CGFloat(config.scaleRange / 2))
-                let pAlpha = min(1, max(0, CGFloat(config.alpha * Double(velScale))
-                    + CGFloat.random(in: CGFloat(-config.alphaRange / 2) ... CGFloat(config.alphaRange / 2))))
-
-                particles.append(ExportParticle(
-                    x: px, y: py,
-                    vx: pvx, vy: pvy,
-                    age: 0, maxAge: max(0.1, lifetime),
-                    scale: max(0.001, pScale), scaleSpeed: CGFloat(config.scaleSpeed),
-                    alpha: pAlpha, alphaSpeed: CGFloat(config.alphaSpeed),
-                    r: cr, g: cg, b: cb
-                ))
-            }
+            // Delegate to the shared emitter (upSign = +1: flipped context has y increasing upward)
+            let new = emitMidibarParticles(
+                at: emitPos,
+                noteColor: (cr, cg, cb),
+                velocity: velocity,
+                config: config,
+                upSign: 1.0
+            )
+            particles.append(contentsOf: new)
         }
     }
 
-    nonisolated private static func updateParticles(
-        _ particles: inout [ExportParticle], dt: CGFloat, config: ParticleConfiguration
-    ) {
-        for i in particles.indices.reversed() {
-            particles[i].age += dt
-            particles[i].x += particles[i].vx * dt
-            particles[i].y += particles[i].vy * dt
-            particles[i].vx += CGFloat(config.xAcceleration) * dt
-            // yAcceleration is "up" in SpriteKit; in flipped context up = negative Y
-            particles[i].vy -= CGFloat(config.yAcceleration) * dt
-            particles[i].scale += particles[i].scaleSpeed * dt
-            particles[i].alpha += particles[i].alphaSpeed * dt
-            if !particles[i].isAlive {
-                particles.remove(at: i)
-            }
-        }
-    }
+    // updateParticles removed — replaced by updateMidibarParticles from MidibarParticleSystem.swift
 
+    /// Render particles using the midiplayer glow shader style:
+    /// solid white core (inner 4% of radius) + max(0, 0.7 − √(r/outerR)) falloff.
     nonisolated private static func drawParticles(
-        _ particles: [ExportParticle], in ctx: CGContext, w: CGFloat, h: CGFloat
+        _ particles: [MidibarParticle], in ctx: CGContext, w: CGFloat, h: CGFloat
     ) {
         guard !particles.isEmpty else { return }
         let colorSpace = CGColorSpaceCreateDeviceRGB()
@@ -801,27 +754,56 @@ class VideoExporter: ObservableObject {
         ctx.saveGState()
         ctx.setBlendMode(.plusLighter)
 
-        // Match SpriteKit: scale is a multiplier of texture size (default texture = 32px); use half for radius.
-        let textureRadius: CGFloat = 16
-        for p in particles where p.alpha > 0.005 && p.scale > 0.001 {
-            let radius = max(1, textureRadius * p.scale)
+        for p in particles where p.normalizedAlpha > 0.005 {
+            let a = p.normalizedAlpha
             let center = CGPoint(x: p.x, y: p.y)
-            let a = min(1, max(0, p.alpha))
 
-            let components: [CGFloat] = [
-                p.r, p.g, p.b, a,
-                p.r, p.g, p.b, a * 0.4,
-                p.r, p.g, p.b, 0,
-            ]
-            let locations: [CGFloat] = [0, 0.35, 1]
-            guard let gradient = CGGradient(
-                colorSpace: colorSpace, colorComponents: components, locations: locations, count: 3
-            ) else { continue }
+            switch p.kind {
 
-            ctx.saveGState()
-            ctx.clip(to: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
-            ctx.drawRadialGradient(gradient, startCenter: center, startRadius: 0, endCenter: center, endRadius: radius, options: [])
-            ctx.restoreGState()
+            case .dust:
+                let radius = MidibarParticle.dustBaseRadius
+                // 6-stop gradient matching midiplayer shader (see MidibarParticleSystem.swift)
+                let comps: [CGFloat] = [
+                    p.r, p.g, p.b, a,          // loc 0.00 – core centre
+                    p.r, p.g, p.b, a,          // loc 0.04 – core edge
+                    p.r, p.g, p.b, a * 0.36,  // loc 0.15
+                    p.r, p.g, p.b, a * 0.18,  // loc 0.30
+                    p.r, p.g, p.b, 0,          // loc 0.51
+                    p.r, p.g, p.b, 0,          // loc 1.00
+                ]
+                let locs: [CGFloat] = [0.00, 0.04, 0.15, 0.30, 0.51, 1.00]
+                guard let gradient = CGGradient(colorSpace: colorSpace, colorComponents: comps, locations: locs, count: 6)
+                else { continue }
+                ctx.saveGState()
+                ctx.clip(to: CGRect(x: center.x - radius, y: center.y - radius,
+                                    width: radius * 2,    height: radius * 2))
+                ctx.drawRadialGradient(gradient,
+                    startCenter: center, startRadius: 0,
+                    endCenter:   center, endRadius: radius, options: [])
+                ctx.restoreGState()
+
+            case .smoke:
+                // Smoke expands as it cools: same formula as PianoParticleScene.applySmoke
+                let coolFraction = CGFloat(1.0 - p.normalizedAlpha)
+                let radius = MidibarParticle.smokeBaseRadius
+                         * (1.0 + coolFraction * (MidibarParticle.smokeMaxScale - 1.0))
+                let smokeAlpha = a * 0.35  // smoke is softer
+                let comps: [CGFloat] = [
+                    p.r, p.g, p.b, smokeAlpha,
+                    p.r, p.g, p.b, smokeAlpha * 0.33,
+                    p.r, p.g, p.b, 0,
+                ]
+                let locs: [CGFloat] = [0.0, 0.5, 1.0]
+                guard let gradient = CGGradient(colorSpace: colorSpace, colorComponents: comps, locations: locs, count: 3)
+                else { continue }
+                ctx.saveGState()
+                ctx.clip(to: CGRect(x: center.x - radius, y: center.y - radius,
+                                    width: radius * 2,    height: radius * 2))
+                ctx.drawRadialGradient(gradient,
+                    startCenter: center, startRadius: 0,
+                    endCenter:   center, endRadius: radius, options: [])
+                ctx.restoreGState()
+            }
         }
 
         ctx.restoreGState()
