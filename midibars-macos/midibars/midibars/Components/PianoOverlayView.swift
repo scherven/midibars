@@ -15,6 +15,7 @@ struct PianoOverlayView: View {
             let size = geo.size
 
             ZStack {
+                TimelineView(.animation) { timeline in
                 Canvas { context, canvasSize in
                     let tl = denormalize(project.pianoTopLeft, in: canvasSize)
                     let tr = denormalize(project.pianoTopRight, in: canvasSize)
@@ -27,9 +28,22 @@ struct PianoOverlayView: View {
                     let whiteIndexMap = Dictionary(uniqueKeysWithValues: whites.enumerated().map { ($1, $0) })
 
                     if !project.isSettingPiano {
+                        // Compute smooth MIDI time at display refresh rate.
+                        // When playing, interpolate from the anchor; otherwise use the last known percent.
+                        let smoothMidiTime: Double
+                        if project.isPlaying, let anchorDate = project.midiPlayAnchorDate,
+                           let midiData = project.midiData, midiData.duration > 0 {
+                            let elapsed = timeline.date.timeIntervalSince(anchorDate)
+                            smoothMidiTime = min(project.midiPlayAnchorMidiTime + elapsed, midiData.duration)
+                        } else if let midiData = project.midiData, midiData.duration > 0 {
+                            smoothMidiTime = midiData.duration * (project.midiPlaybackPercent / 100.0)
+                        } else {
+                            smoothMidiTime = 0
+                        }
                         drawMidiBars(
                             context: context, tl: tl, tr: tr,
-                            edges: edges, whiteIndexMap: whiteIndexMap
+                            edges: edges, whiteIndexMap: whiteIndexMap,
+                            currentTime: smoothMidiTime
                         )
                     }
 
@@ -98,6 +112,7 @@ struct PianoOverlayView: View {
                         }
                     }
                 }
+                } // TimelineView
 
                 if project.isSettingPiano {
                     Color.clear
@@ -152,11 +167,10 @@ struct PianoOverlayView: View {
         context: GraphicsContext,
         tl: CGPoint, tr: CGPoint,
         edges: [Double],
-        whiteIndexMap: [Int: Int]
+        whiteIndexMap: [Int: Int],
+        currentTime: Double
     ) {
         guard let midiData = project.midiData, midiData.duration > 0 else { return }
-
-        let currentTime = midiData.duration * (project.midiPlaybackPercent / 100.0)
 
         let dx = tr.x - tl.x
         let dy = tr.y - tl.y
@@ -176,9 +190,23 @@ struct PianoOverlayView: View {
 
         let speed = spawnDist / CGFloat(barLeadTime)
         let cr = CGFloat(project.barConfig.cornerRadius)
+        let barColor = Color(
+            red: project.barConfig.colorRed,
+            green: project.barConfig.colorGreen,
+            blue: project.barConfig.colorBlue
+        ).opacity(0.8)
 
-        for note in midiData.notes {
+        // Binary search: only iterate notes in the visible time window.
+        // Lower bound: notes that ended before (currentTime - maxNoteDuration) are invisible.
+        // Upper bound: notes starting after (currentTime + barLeadTime) are not yet visible.
+        let windowStart = currentTime - max(midiData.maxNoteDuration, barLeadTime)
+        let windowEnd = currentTime + barLeadTime
+        let startIdx = midiData.notes.lowerBound(startTime: windowStart)
+
+        for note in midiData.notes[startIdx...] {
             let start = note.startTime
+            guard start <= windowEnd else { break }
+
             let dur = note.duration
             let pitch = Int(note.pitch)
 
@@ -239,11 +267,6 @@ struct PianoOverlayView: View {
             )
             let path = localPath.applying(transform)
 
-            let barColor = Color(
-                red: project.barConfig.colorRed,
-                green: project.barConfig.colorGreen,
-                blue: project.barConfig.colorBlue
-            ).opacity(0.8)
             context.fill(path, with: .color(barColor))
         }
     }

@@ -77,6 +77,11 @@ class ProjectState: ObservableObject {
     let particleScene = PianoParticleScene()
     private var previouslyActiveNotes: Set<UInt8> = []
 
+    /// Anchor for smooth per-frame MIDI time interpolation in TimelineView.
+    /// Set when playback starts or resumes; nil when paused/stopped.
+    var midiPlayAnchorDate: Date? = nil
+    var midiPlayAnchorMidiTime: Double = 0
+
     let canvasAspectRatio: CGFloat = 16.0 / 9.0
 
     var currentTimeString: String {
@@ -174,6 +179,7 @@ class ProjectState: ObservableObject {
         player?.pause()
         audioPlayer?.pause()
         stopPlaybackTimer()
+        midiPlayAnchorDate = nil
         isPlaying = false
     }
 
@@ -184,6 +190,7 @@ class ProjectState: ObservableObject {
             player?.pause()
             audioPlayer?.pause()
             stopPlaybackTimer()
+            midiPlayAnchorDate = nil
         } else {
             player?.isMuted = true
             player?.play()
@@ -192,6 +199,8 @@ class ProjectState: ObservableObject {
                 audioPlayer.play()
             }
             startPlaybackTimer()
+            midiPlayAnchorMidiTime = currentMidiTime()
+            midiPlayAnchorDate = Date()
         }
         isPlaying.toggle()
     }
@@ -221,6 +230,8 @@ class ProjectState: ObservableObject {
             if let audioPlayer, audioPlayer.duration > 0 {
                 audioPlayer.play()
             }
+            midiPlayAnchorMidiTime = currentMidiTime()
+            midiPlayAnchorDate = Date()
         }
     }
 
@@ -231,6 +242,20 @@ class ProjectState: ObservableObject {
         let target = CMTime(seconds: duration * (percent / 100.0), preferredTimescale: 600)
         player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
         syncAudioToVideo()
+    }
+
+    /// Returns the current MIDI position in seconds, derived from the video player.
+    func currentMidiTime() -> Double {
+        guard let midiData, midiData.duration > 0 else { return 0 }
+        var videoCurrentTime: Double = 0
+        if let player, let item = player.currentItem {
+            let d = CMTimeGetSeconds(item.duration)
+            if d.isFinite && d > 0 {
+                videoCurrentTime = CMTimeGetSeconds(player.currentTime())
+            }
+        }
+        let midiStartTime = midiData.duration * (clampedPercent(midiStartPercent) / 100.0)
+        return min(max(midiStartTime + videoCurrentTime, 0), midiData.duration)
     }
 
     private func syncAudioToVideo() {
@@ -295,9 +320,16 @@ class ProjectState: ObservableObject {
             midiPlaybackPercent = clampedPercent(((midiStartTime + videoCurrentTime) / midiData.duration) * 100.0)
 
             let currentTime = midiData.duration * (midiPlaybackPercent / 100.0)
-            let newActive: Set<UInt8> = Set(midiData.notes.filter {
-                currentTime >= $0.startTime && currentTime < $0.startTime + $0.duration
-            }.map(\.pitch))
+            // Binary search: only scan notes that could be active at currentTime.
+            let activeWindowStart = currentTime - midiData.maxNoteDuration
+            let activeStartIdx = midiData.notes.lowerBound(startTime: activeWindowStart)
+            var newActive = Set<UInt8>()
+            for note in midiData.notes[activeStartIdx...] {
+                guard note.startTime <= currentTime else { break }
+                if currentTime < note.startTime + note.duration {
+                    newActive.insert(note.pitch)
+                }
+            }
 
             if showPianoOverlay {
                 activeMIDINotes = newActive
@@ -333,12 +365,25 @@ class ProjectState: ObservableObject {
         // and now — too short to be caught by the 30fps sampling.
         let previousTime = lastParticleSampleTime
         var missedNotes: Set<UInt8> = []
+        // Build velocity map using a single binary-search-bounded pass.
+        // Maps pitch → velocity for notes active now or missed between samples.
+        var velocityMap: [UInt8: CGFloat] = [:]
         if let midiData, previousTime > 0, previousTime < currentTime {
-            missedNotes = Set(midiData.notes.filter {
-                $0.startTime >= previousTime &&
-                $0.startTime + $0.duration <= currentTime &&
-                !currentActive.contains($0.pitch)
-            }.map(\.pitch))
+            let windowStart = previousTime - midiData.maxNoteDuration
+            let startIdx = midiData.notes.lowerBound(startTime: windowStart)
+            for note in midiData.notes[startIdx...] {
+                guard note.startTime <= currentTime else { break }
+                let vel = CGFloat(note.velocity) / 127.0
+                if currentTime >= note.startTime && currentTime < note.startTime + note.duration {
+                    // Active now
+                    velocityMap[note.pitch] = vel
+                } else if note.startTime >= previousTime && note.startTime + note.duration <= currentTime
+                            && !currentActive.contains(note.pitch) {
+                    // Missed (started and ended between samples)
+                    missedNotes.insert(note.pitch)
+                    if velocityMap[note.pitch] == nil { velocityMap[note.pitch] = vel }
+                }
+            }
         }
         lastParticleSampleTime = currentTime
 
@@ -373,22 +418,7 @@ class ProjectState: ObservableObject {
                 topRight: pianoTopRight
             )
 
-            let velocity: CGFloat
-            if let note = midiData?.notes.first(where: {
-                $0.pitch == pitch &&
-                currentTime >= $0.startTime &&
-                currentTime < $0.startTime + $0.duration
-            }) {
-                velocity = CGFloat(note.velocity) / 127.0
-            } else if let note = midiData?.notes.first(where: {
-                $0.pitch == pitch &&
-                $0.startTime >= previousTime &&
-                $0.startTime + $0.duration <= currentTime
-            }) {
-                velocity = CGFloat(note.velocity) / 127.0
-            } else {
-                velocity = 0.8
-            }
+            let velocity = velocityMap[pitch] ?? 0.8
 
             let color: NSColor
             if particleConfig.useNoteColor {

@@ -556,17 +556,17 @@ class VideoExporter: ObservableObject {
         guard lineLen > 1 else { return }
 
         // Same "up" as editor: perpendicular to top edge, pointing toward top of canvas.
-        // In export context Y increases upward (0=bottom, h=top), so "up" = toward top = positive Y.
-        var upX = -dy / lineLen
-        var upY = dx / lineLen
-        if upY < 0 { upX = -upX; upY = -upY }
+        // Export context is flipped to Y-down (matches SwiftUI Canvas), so "up" = toward y=0 = negative Y.
+        var upX = dy / lineLen
+        var upY = -dx / lineLen
+        if upY > 0 { upX = -upX; upY = -upY }
 
         let rightX = dx / lineLen
         let rightY = dy / lineLen
 
         let midY = (tl.y + tr.y) / 2
-        // Distance from piano line to top of canvas in the "up" direction (editor: top=0 so spawnDist=midY; here top=h so spawnDist=(h-midY)/upY).
-        let spawnDist: CGFloat = abs(upY) > 0.001 ? (h - midY) / upY : (h - midY)
+        // Distance from piano line to top of canvas (same formula as editor).
+        let spawnDist: CGFloat = abs(upY) > 0.001 ? abs(midY / upY) : midY
         guard spawnDist > 1 else { return }
 
         let barLeadTime: Double = 2.0
@@ -583,8 +583,14 @@ class VideoExporter: ObservableObject {
         )
         ctx.setFillColor(barColor)
 
-        for note in midiData.notes {
+        let windowStart = midiTime - max(midiData.maxNoteDuration, barLeadTime)
+        let windowEnd = midiTime + barLeadTime
+        let startIdx = midiData.notes.lowerBound(startTime: windowStart)
+
+        for note in midiData.notes[startIdx...] {
             let start = note.startTime
+            guard start <= windowEnd else { break }
+
             let dur = note.duration
             let pitch = Int(note.pitch)
 
@@ -614,7 +620,11 @@ class VideoExporter: ObservableObject {
             let curH: CGFloat
             if midiTime < start {
                 let progress = CGFloat((midiTime - (start - barLeadTime)) / barLeadTime)
-                perpOff = spawnDist * (1 - progress)
+                let rawOff = spawnDist * (1 - progress)
+                // Snap to piano within 1.5 frames of arrival so the last export frame
+                // never shows a visible gap (30 fps → one frame = spawnDist/barLeadTime/30).
+                let framePerp = spawnDist / CGFloat(barLeadTime * 30.0)
+                perpOff = rawOff <= framePerp * 1.5 ? 0 : rawOff
                 curH = noteH
             } else {
                 let elapsed = CGFloat(midiTime - start)
@@ -630,8 +640,13 @@ class VideoExporter: ObservableObject {
             let originX = pL.x + perpOff * upX
             let originY = pL.y + perpOff * upY
 
-            let clampedCR = min(cr, barWidth / 2, curH / 2)
-            let localRect = CGRect(x: 0, y: 0, width: barWidth, height: curH)
+            // In the editor the piano key overlay is drawn on top of bar bottoms, hiding
+            // the rounded bottom corners and making bars appear flush with the piano.
+            // In the export there is no overlay, so extend bars by cornerRadius into the
+            // piano area so the visual bottom aligns with the piano edge as in the editor.
+            let pianoOverlap: CGFloat = max(0, cr)
+            let clampedCR = min(cr, barWidth / 2, (curH + pianoOverlap) / 2)
+            let localRect = CGRect(x: 0, y: -pianoOverlap, width: barWidth, height: curH + pianoOverlap)
 
             var xform = CGAffineTransform(
                 a: rightX, b: rightY,
@@ -697,10 +712,11 @@ class VideoExporter: ObservableObject {
                 pitch: Int(pitch), edges: edges, whiteIndexMap: whiteIndexMap, blackKeyWidthRatio: blackKeyWidthRatio
             ) else { continue }
 
-            // Emission position is in the flipped CG context (y-up, y=0 at bottom of frame)
+            // Emission position: piano coords are Y-DOWN; particle system uses Y-UP, so flip y.
             let tlPt = CGPoint(x: snapshot.pianoTopLeft.x * w, y: snapshot.pianoTopLeft.y * h)
             let trPt = CGPoint(x: snapshot.pianoTopRight.x * w, y: snapshot.pianoTopRight.y * h)
-            let emitPos = lerp(tlPt, trPt, t: fraction)
+            let emitPosDown = lerp(tlPt, trPt, t: fraction)
+            let emitPos = CGPoint(x: emitPosDown.x, y: h - emitPosDown.y)
 
             let velocity: CGFloat
             if let note = midiData.notes.first(where: {
@@ -746,7 +762,8 @@ class VideoExporter: ObservableObject {
 
         for p in particles where p.normalizedAlpha > 0.005 {
             let a = p.normalizedAlpha
-            let center = CGPoint(x: p.x, y: p.y)
+            // Particles are in Y-UP space; convert to Y-DOWN for the flipped CGContext.
+            let center = CGPoint(x: p.x, y: h - p.y)
 
             switch p.kind {
 

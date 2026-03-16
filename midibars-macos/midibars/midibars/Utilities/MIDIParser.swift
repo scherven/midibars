@@ -152,11 +152,14 @@ enum MIDIParser {
 
         guard !notes.isEmpty else { return nil }
 
+        notes.sort { $0.startTime < $1.startTime }
+
         return MIDIData(
             notes: notes,
             duration: notes.map { $0.startTime + $0.duration }.max()!,
             minPitch: notes.map(\.pitch).min()!,
-            maxPitch: notes.map(\.pitch).max()!
+            maxPitch: notes.map(\.pitch).max()!,
+            maxNoteDuration: notes.map(\.duration).max()!
         )
     }
 
